@@ -25,9 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
-import org.apache.log4j.Logger;
-import org.apache.log4j.lf5.Log4JLogRecord;
-import org.eclipse.core.internal.jobs.Queue;
+import java.util.logging.Logger;
 
 import spoon.MavenLauncher;
 import spoon.SpoonAPI;
@@ -183,7 +181,7 @@ public class ImpactAnalysis {
                 }
             }
         }
-        Logger.getLogger("getImpactedTests").info(chains.size());
+        Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
         return exploreAST(chains);
     }
 
@@ -242,7 +240,7 @@ public class ImpactAnalysis {
                         return false; // TODO see if we can handle it
                     } else {
                         Logger.getLogger("FilterEvolvedElements.matches")
-                                .warn(element.getClass() + " is not handled by the filter.");
+                                .warning(element.getClass() + " is not handled by the filter.");
                         return false;
                     }
                 }
@@ -342,7 +340,7 @@ public class ImpactAnalysis {
                     Logger.getLogger("ImpactLogger").info("call MD not handled " + z.getClass().getName());
                 }
             } else if (elem == null) {
-                Logger.getLogger("ImpactLogger").error("getLast returned null");
+                Logger.getLogger("ImpactLogger").warning("getLast returned null");
             } else {
                 Logger.getLogger("ImpactLogger").info("Impact content not handled " + elem.getClass().getName());
             }

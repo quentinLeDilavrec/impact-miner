@@ -84,54 +84,35 @@ public class Impacts implements JsonSerializable<ImpactElement> {
         this.tests = new HashSet<>();
         this.roots = new HashSet<>();
         for (ImpactChain si : x) {
-            if (si.size() == 7) {
-                verticesPerRoots.putIfAbsent(si.getRoot(), new HashMap<>());
-                tests.add(si.getLast());
-                roots.add(si.getRoot());
-                addCause(si);
-            }
+            verticesPerRoots.putIfAbsent(si.getRoot(), new HashMap<>());
+            tests.add(si.getLast());
+            roots.add(si.getRoot());
+            addCause(si, null);
         }
     }
 
-    private void addCause(ImpactChain si) {
+    private void addCause(ImpactChain si, ImpactElement prevCurr) {
         Map<ImpactElement, Relations> dag = verticesPerRoots.get(si.getRoot());
         ImpactElement curr = si.getLast();
-        // int hash =
-        // if(curr instanceof SourcePositionHolder){
-        // int hash = ((SourcePositionHolder)curr).getPosition().hashCode();
-        // System.out.println(hash);
-        // }
 
         Relations tmp = dag.get(curr); // hash == 1 from JDK8?
         if (tmp == null) {
+            tmp = new Relations(curr, si.size());
+            dag.put(curr, tmp);
             ImpactChain prev = si.getPrevious();
             if (prev != null) {
-                Relations s = new Relations(curr, si.size());
-                s.addCause(prev.getLast());
-                dag.put(curr, s);
-                // addEffect(dag, prev, curr);
-                addCause(prev);
+                tmp.addCause(prev.getLast());
+                if(prevCurr!=null)
+                    tmp.addEffect(prevCurr);
+                addCause(prev, curr);
             }
         } else {
             ImpactChain prev = si.getPrevious();
             if (prev != null) {
                 tmp.addCause(prev.getLast());
-                addCause(prev);
-                // addEffect(dag, prev, curr);
-                // addCause(prev);
+                if(prevCurr!=null)
+                    tmp.addEffect(prevCurr);
             }
-        }
-    }
-
-    private void addEffect(Map<ImpactElement, Relations> dag, ImpactChain si, ImpactElement fff) {
-        ImpactElement qqq = si.getLast();
-        Relations tmp = dag.get(qqq);// 1
-        if (tmp == null) {
-            Relations s = new Relations(qqq, si.size());// 1
-            s.addEffect(fff);// 2
-            dag.put(qqq, s);// 1
-        } else {
-            tmp.addEffect(fff);// 2
         }
     }
 

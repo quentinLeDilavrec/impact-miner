@@ -1,6 +1,6 @@
 package fr.quentin;
 
-public class Position{
+public class Position {
     String file;
     int start;
     int end;
@@ -53,6 +53,4 @@ public class Position{
             return false;
         return true;
     }
-
-    
 }
