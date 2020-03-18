@@ -76,18 +76,22 @@ public class Impacts implements JsonSerializable<ImpactElement> {
     }
 
     private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerRoots;
+    private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerTests;
     private Set<ImpactElement> tests;
     private Set<ImpactElement> roots;
 
     public Impacts(Collection<ImpactChain> x) {
         this.verticesPerRoots = new HashMap<>();
+        this.verticesPerTests = new HashMap<>();
         this.tests = new HashSet<>();
         this.roots = new HashSet<>();
         for (ImpactChain si : x) {
             verticesPerRoots.putIfAbsent(si.getRoot(), new HashMap<>());
+            verticesPerTests.putIfAbsent(si.getLast(), new HashMap<>());
             tests.add(si.getLast());
             roots.add(si.getRoot());
             addCause(si, null);
+            addCauseBis(si);
         }
     }
 
@@ -102,7 +106,7 @@ public class Impacts implements JsonSerializable<ImpactElement> {
             ImpactChain prev = si.getPrevious();
             if (prev != null) {
                 tmp.addCause(prev.getLast());
-                if(prevCurr!=null)
+                if (prevCurr != null)
                     tmp.addEffect(prevCurr);
                 addCause(prev, curr);
             }
@@ -110,9 +114,28 @@ public class Impacts implements JsonSerializable<ImpactElement> {
             ImpactChain prev = si.getPrevious();
             if (prev != null) {
                 tmp.addCause(prev.getLast());
-                if(prevCurr!=null)
+                if (prevCurr != null)
                     tmp.addEffect(prevCurr);
             }
+        }
+    }
+
+    private void addCauseBis(final ImpactChain si) {
+        Map<ImpactElement, Relations> dag = verticesPerTests.get(si.getLast());
+
+        ImpactChain x = si;
+        ImpactElement tmp = null;
+        while (x.getPrevious() != null) {
+            ImpactChain y = x.getPrevious();
+
+            Relations rel = new Relations(x.getLast(), x.size());
+            rel.addCause(y.getLast());
+            if (tmp != null) {
+                rel.addEffect(tmp);
+            }
+            tmp = x.getLast();
+            dag.put(x.getLast(), rel);
+            x = y;
         }
     }
 
@@ -188,6 +211,16 @@ public class Impacts implements JsonSerializable<ImpactElement> {
             JsonObject o = new JsonObject();
             perRoots.add(o);
             Map<ImpactElement, Relations> curr = this.verticesPerRoots.get(e);
+            o.add("vertices", g.apply(curr.values()));
+            // o.add("edges", f.apply(curr.values()));
+            o.addProperty("root", e.hashCode());
+        }
+        JsonArray perTests = new JsonArray();
+        a.add("perTests", perTests);
+        for (ImpactElement e : this.tests) {
+            JsonObject o = new JsonObject();
+            perTests.add(o);
+            Map<ImpactElement, Relations> curr = this.verticesPerTests.get(e);
             o.add("vertices", g.apply(curr.values()));
             // o.add("edges", f.apply(curr.values()));
             o.addProperty("root", e.hashCode());

@@ -50,7 +50,7 @@ import spoon.support.reflect.declaration.CtMethodImpl;
 
 public class ImpactAnalysis {
 
-    private static final Integer MAX_CHAIN_LENGTH = 4;
+    private static final Integer MAX_CHAIN_LENGTH = 10;
     private SpoonAPI launcher;
     // private Map<>
     private Set<Path> testDirs;
@@ -77,15 +77,8 @@ public class ImpactAnalysis {
         }
         this.testThings = launcher.getModel().getAllTypes().stream().filter((x) -> {
             for (final Path file : testDirs) {
-                // System.out.println("+++++++++++++++++++");
                 try {
-                    // System.err.println(file.toRealPath().toAbsolutePath());
-                    // System.err.println(rootFolder.relativize(file.toRealPath().toAbsolutePath()));
-                    // System.err.println(x.getPosition().getFile().toPath().toRealPath());
-                    // System.err.println(rootFolder.relativize(x.getPosition().getFile().toPath().toRealPath()));
-                    // System.err.println(x.getSimpleName());
                     if (rootFolder.relativize(x.getPosition().getFile().toPath().toRealPath()).startsWith(file)) {
-                        // System.out.println("===================");
                         return true;
                     }
                 } catch (final IOException e) {
@@ -106,15 +99,6 @@ public class ImpactAnalysis {
             return false;
         }).collect(Collectors.toSet());
 
-        // System.out.println("+++++++++++++++++++");
-        // for (final CtType<?> x : testThings) {
-        // System.out.println(x.getPosition().getFile().toPath());
-        // }
-
-        // System.out.println("********************");
-        // for (final CtType<?> x : srcThings) {
-        // System.out.println(x.getPosition().getFile().toPath());
-        // }
         this.testEntries = new HashMap<>();
         this.allMethodsReferences = new ArrayList<>();
         for (CtMethod<?> m : launcher.getModel().getElements(new TypeFilter<>(CtMethod.class))) {
@@ -205,7 +189,7 @@ public class ImpactAnalysis {
         }
 
         // public FilterEvolvedElements(ImpactElement p) {
-        //     this(p.getPosition());
+        // this(p.getPosition());
         // }
 
         @Override
@@ -267,8 +251,8 @@ public class ImpactAnalysis {
             if (elem instanceof CtInvocation) {
                 final CtInvocation<?> invocationElement = (CtInvocation<?>) elem;
                 elem = invocationElement.getParent(CtExecutable.class);
-            } else if (elem instanceof CtConstructor) {
-                final CtConstructor<?> constructionElement = (CtConstructor<?>) elem;
+            } else if (elem instanceof CtConstructorCall) {
+                final CtConstructorCall<?> constructionElement = (CtConstructorCall<?>) elem;
                 elem = constructionElement.getParent(CtExecutable.class);
             }
             if (elem instanceof CtExecutable) {
@@ -295,6 +279,8 @@ public class ImpactAnalysis {
                         if (b instanceof CtInvocation) {
                             // System.out.println("bbb");
                             CtInvocation<?> c = (CtInvocation<?>) b;
+                            if (!c.getPosition().isValidPosition())
+                                continue;
                             // System.out.println(c);
                             CtExecutable<?> p = c.getParent(CtExecutable.class);
                             if (p != null) {
@@ -319,6 +305,8 @@ public class ImpactAnalysis {
                             }
                         } else if (b instanceof CtConstructorCall) {
                             CtConstructorCall<?> c = (CtConstructorCall<?>) b;
+                            if (!c.getPosition().isValidPosition())
+                                continue;
                             CtElement p = c.getParent(CtConstructor.class);
                             if (p != null) {
                                 ImpactChain p2 = current.extend(new ImpactElement(c));

@@ -92,20 +92,19 @@ final class ImpactPreprossessor extends CtScanner {
         this.allMethodsReferences = allMethodsReferences;
     }
 
-    private <T, R extends Collection<?>> void insertMetaData(final CtElement e, final String key, final R deflt,
+    private <T> void insertMetaData(final CtElement element, final String key, final Collection<T> defaultValue,
             final T value) {
-        Object x = e.getMetadata(key);
+        Object x = element.getMetadata(key);
         if (x == null) {
-            x = deflt;
-            e.putMetadata(key, x);
+            x = defaultValue;
+            element.putMetadata(key, x);
         }
         if (x instanceof Collection) {
-            final Collection<T> y = (Collection<T>) x;
-            y.add(value);
+            ((Collection<T>) x).add(value);
         }
     }
 
-    private <T, R extends Collection<?>> void counterMetaData(final CtElement e, final String key) {
+    private void counterMetaData(final CtElement e, final String key) {
         Object x = e.getMetadata(key);
         if (x == null) {
             x = new Integer(0);
@@ -173,6 +172,8 @@ final class ImpactPreprossessor extends CtScanner {
             // counterMetaData(b, "call count");
         }
     }
+
+    // TODO take inspiration from gumtree-spoon
 
     // @Override
     // public <A extends Annotation> void visitCtAnnotation(final CtAnnotation<A>
