@@ -6,20 +6,16 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-import spoon.reflect.code.CtInvocation;
-import spoon.reflect.cu.SourcePosition;
-import spoon.reflect.cu.SourcePositionHolder;
 import spoon.reflect.declaration.CtElement;
 
-public class Impacts implements JsonSerializable<ImpactElement> {
+public class Impacts implements JsonSerializable {
 
-    private class Relations implements JsonSerializable<ImpactElement> {
+    private class Relations implements JsonSerializable {
 
         private Set<ImpactElement> causes;
         private Set<ImpactElement> effects;
@@ -75,6 +71,7 @@ public class Impacts implements JsonSerializable<ImpactElement> {
         }
     }
 
+    // TODO try to remove ImpactElement wrapper
     private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerRoots;
     private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerTests;
     private Set<ImpactElement> tests;
@@ -141,7 +138,6 @@ public class Impacts implements JsonSerializable<ImpactElement> {
 
     @Override
     public JsonElement toJson(ToJson f) {
-        JsonObject a = new JsonObject();
         ToJson h = new ToJson() {
             public JsonElement apply(Object x) {
                 if (x instanceof Collection) {
@@ -153,15 +149,6 @@ public class Impacts implements JsonSerializable<ImpactElement> {
                 } else if (x instanceof ImpactElement) {
                     ImpactElement y = (ImpactElement) x;
                     return new JsonPrimitive(y.hashCode());
-                    // } else if (x instanceof Relations) {
-                    // Relations y = (Relations) x;
-                    // CtElement vert = (CtElement) y.getVertice().getContent();
-                    // SourcePosition p = vert.getPosition();
-                    // return new JsonPrimitive(p.hashCode());
-                    // } else if (x instanceof SourcePositionHolder) {
-                    // SourcePositionHolder y = (SourcePositionHolder) x;
-                    // SourcePosition p = y.getPosition();
-                    // return new JsonPrimitive(p.hashCode());
                 } else {
                     return new JsonPrimitive(x.getClass().getCanonicalName());
                 }
@@ -180,14 +167,21 @@ public class Impacts implements JsonSerializable<ImpactElement> {
                     JsonObject o = new JsonObject();
                     o.addProperty("id", y.hashCode());
                     o.add("value", f.apply(y.getContent()));
+                    for (Evolution<?> e : y.getEvolutions()) {
+                        o.add("evolution",e.toJson());
+                        break;
+                    }
                     return o;
                 } else if (x instanceof Relations) {
                     Relations y = (Relations) x;
                     JsonObject o = new JsonObject();
-                    CtElement vert = (CtElement) y.getVertice().getContent();
-                    // SourcePosition p = vert.getPosition();
-                    o.addProperty("id", y.getVertice().hashCode());
-                    o.add("value", f.apply(vert));
+                    ImpactElement vert = y.getVertice();
+                    o.addProperty("id", vert.hashCode());
+                    o.add("value", f.apply(vert.getContent()));
+                    for (Evolution<?> e : vert.getEvolutions()) {
+                        o.add("evolution",e.toJson());
+                        break;
+                    }
                     o.addProperty("depth", y.getDepth());
                     o.add("causes", h.apply(y.getCauses()));
                     o.add("effects", h.apply(y.getEffects()));
@@ -205,6 +199,7 @@ public class Impacts implements JsonSerializable<ImpactElement> {
                 }
             }
         };
+        JsonObject a = new JsonObject();
         JsonArray perRoots = new JsonArray();
         a.add("perRoot", perRoots);
         for (ImpactElement e : this.roots) {

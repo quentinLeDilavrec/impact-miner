@@ -180,11 +180,11 @@ public class App {
             });
         }
 
-        List<Evolution> executableRefsAsPosition = new ArrayList<>();
+        List<Evolution<Object>> executableRefsAsPosition = new ArrayList<>();
         for (CtExecutableReference<?> aaaa : allExecutableReference.subList(50, 100)) {
             try {
                 if (aaaa.getDeclaration().getPosition().isValidPosition()) {
-                    executableRefsAsPosition.add(new Evolution1234(aaaa.getDeclaration()));
+                    executableRefsAsPosition.add(new PlaceHolderEvolution(aaaa.getDeclaration()));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -196,7 +196,7 @@ public class App {
         System.out.println(gson.toJson(x.toJson(new ToJson() {
             public JsonElement apply(Object x) {
                 if (x instanceof JsonSerializable) {
-                    JsonSerializable<?> y = (JsonSerializable<?>) x;
+                    JsonSerializable y = (JsonSerializable) x;
                     return y.toJson(this);
                 } else if (x instanceof CtMethod) {
                     CtMethod<?> y = (CtMethod<?>) x;
@@ -235,10 +235,10 @@ public class App {
         System.out.println("Bye World!");
     }
 
-    static class Evolution1234 implements Evolution {
+    static class PlaceHolderEvolution implements Evolution<Object> {
         Set<Position> impacts = new HashSet<>();
 
-        Evolution1234(SourcePositionHolder holder) throws IOException {
+        PlaceHolderEvolution(SourcePositionHolder holder) throws IOException {
             SourcePosition p = holder.getPosition();
             this.impacts.add(new Position(p.getFile().getCanonicalPath(), p.getSourceStart(), p.getSourceEnd()));
         }
@@ -247,6 +247,22 @@ public class App {
         public Set<Position> getImpactingPositions() {
             return impacts;
         }
+
+        @Override
+        public Set<Position> getPostEvolutionPositions() {
+            return new HashSet<>();
+        }
+
+        @Override
+        public Object getOriginal() {
+            return null;
+        }
+
+        @Override
+        public String getCommitId() {
+            return "";
+        }
+
     }
 }
 // Set<SourcePosition> impinvo = l.getImpactedInvocations("",5,10);

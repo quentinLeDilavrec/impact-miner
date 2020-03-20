@@ -1,9 +1,13 @@
 package fr.quentin;
 
-public class Position {
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
+public class Position implements JsonSerializable {
     String file;
     int start;
     int end;
+
 
     public Position(String filePath, int start, int end) {
         this.file = filePath;
@@ -11,12 +15,16 @@ public class Position {
         this.end = end;
     }
 
-    public int getStart() {
-        return start;
-    }
+    // public String getRoot() {
+    //     return root;
+    // }
 
     public String getFilePath() {
         return file;
+    }
+
+    public int getStart() {
+        return start;
     }
 
     public int getEnd() {
@@ -27,9 +35,9 @@ public class Position {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + end;
-        result = prime * result + ((file == null) ? 0 : file.hashCode());
+        result = prime * result + ((file == null) ? 0 : (file).hashCode());
         result = prime * result + start;
+        result = prime * result + end;
         return result;
     }
 
@@ -42,15 +50,24 @@ public class Position {
         if (getClass() != obj.getClass())
             return false;
         Position other = (Position) obj;
-        if (end != other.end)
-            return false;
         if (file == null) {
             if (other.file != null)
                 return false;
-        } else if (!file.equals(other.file))
+        } else if (!(file).equals(other.file))
+            return false;
+        if (end != other.end)
             return false;
         if (start != other.start)
             return false;
         return true;
+    }
+
+    @Override
+    public JsonElement toJson() {
+        JsonObject r = new JsonObject();
+        r.addProperty("file", file);
+        r.addProperty("start", start);
+        r.addProperty("end", end);
+        return r;
     }
 }

@@ -16,9 +16,7 @@ import spoon.reflect.declaration.CtElement;
 public class ImpactElement {
     private Position position;
     private CtElement content;
-    private Set<ImpactElement> causes;
-    private Set<ImpactElement> effects;
-    private Set<Evolution> evolutions=new HashSet<>();
+    private Set<Evolution<Object>> evolutions=new HashSet<>();
 
     ImpactElement(CtElement e) throws IOException {
         this(e.getPosition());
@@ -62,7 +60,7 @@ public class ImpactElement {
     /**
      * @return the evolutions
      */
-    public Set<Evolution> getEvolutions() {
+    public Set<Evolution<Object>> getEvolutions() {
         return evolutions;
     }
 
@@ -72,14 +70,6 @@ public class ImpactElement {
      */
     public CtElement getContent() {
         return content;
-    }
-
-    public Set<ImpactElement> causes() {
-        return causes;
-    }
-
-    public Set<ImpactElement> effects() {
-        return effects;
     }
 
     @Override

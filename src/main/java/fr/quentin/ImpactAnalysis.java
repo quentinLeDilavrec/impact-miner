@@ -3,6 +3,7 @@ package fr.quentin;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.cert.X509CertSelector;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -153,14 +154,18 @@ public class ImpactAnalysis {
     // }
     // }
 
-    public List<ImpactChain> getImpactedTests(Collection<Evolution> x) throws IOException {
+    public <T> List<ImpactChain> getImpactedTests(Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        for (Evolution impactingThing : x) {
+        for (Evolution<T> impactingThing : x) {
             for (Position pos : impactingThing.getImpactingPositions()) {
-                List<CtElement> tmp = this.launcher.getModel().getElements(new FilterEvolvedElements(pos));
+                List<CtElement> tmp = this.launcher.getModel().getElements(new FilterEvolvedElements(
+                    Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
+                    pos.getStart(),
+                    pos.getEnd()
+                ));
                 for (CtElement element : tmp) {
                     ImpactElement tmp2 = new ImpactElement(element);
-                    tmp2.getEvolutions().add(impactingThing);
+                    tmp2.getEvolutions().add((Evolution<Object>) impactingThing);
                     chains.add(new ImpactChain(tmp2));
                 }
             }
@@ -188,6 +193,12 @@ public class ImpactAnalysis {
             this.end = position.getEnd();
         }
 
+        public FilterEvolvedElements(String file,int start,int end) {
+            this.file = file;
+            this.start = start;
+            this.end = end;
+        }
+
         // public FilterEvolvedElements(ImpactElement p) {
         // this(p.getPosition());
         // }
@@ -202,8 +213,7 @@ public class ImpactAnalysis {
                 String c;
                 try {
                     c = p.getFile().getCanonicalPath();
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
+                } catch (Exception e) {
                     e.printStackTrace();
                     return false;
 

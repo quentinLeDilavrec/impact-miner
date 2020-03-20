@@ -6,7 +6,7 @@ import com.google.gson.JsonElement;
 /**
  * A limked list materializing the impact of an impacting element on an impacted element
  */
-public class ImpactChain implements JsonSerializable<ImpactElement> {
+public class ImpactChain implements JsonSerializable {
 
     /**
 	 *
@@ -16,7 +16,7 @@ public class ImpactChain implements JsonSerializable<ImpactElement> {
     private ImpactElement current;
     private Integer size;
 
-    public ImpactChain(ImpactElement impactingThing) {
+    protected ImpactChain(ImpactElement impactingThing) {
 		this.previous = null;
         this.root = impactingThing;
         this.current = impactingThing;
@@ -30,7 +30,7 @@ public class ImpactChain implements JsonSerializable<ImpactElement> {
         this.size = 1 + last.size();
     }
 
-    public ImpactElement getRoot() {
+	public ImpactElement getRoot() {
         return root;
     }
 
