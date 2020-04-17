@@ -244,7 +244,7 @@ public class App {
         }
 
         @Override
-        public Set<Position> getImpactingPositions() {
+        public Set<Position> getPreEvolutionPositions() {
             return impacts;
         }
 
@@ -259,7 +259,12 @@ public class App {
         }
 
         @Override
-        public String getCommitId() {
+        public String getCommitIdAfter() {
+            return "";
+        }
+
+        @Override
+        public String getCommitIdBefore() {
             return "";
         }
 

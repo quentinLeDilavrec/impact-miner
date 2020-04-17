@@ -2,8 +2,10 @@ package fr.quentin;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 import spoon.reflect.cu.SourcePosition;
@@ -16,7 +18,14 @@ import spoon.reflect.declaration.CtElement;
 public class ImpactElement {
     private Position position;
     private CtElement content;
-    private Set<Evolution<Object>> evolutions=new HashSet<>();
+    private Map<Evolution<Object>,Position> evolutions = new HashMap<>();
+
+    /**
+     * @return the getEvolutionWithNonCorrectedPosition
+     */
+    public Map<Evolution<Object>,Position> getEvolutionWithNonCorrectedPosition() {
+        return evolutions;
+    }
 
     ImpactElement(CtElement e) throws IOException {
         this(e.getPosition());
@@ -61,7 +70,15 @@ public class ImpactElement {
      * @return the evolutions
      */
     public Set<Evolution<Object>> getEvolutions() {
-        return evolutions;
+        return evolutions.keySet();
+    }
+
+    public void addEvolution(Evolution<Object> evolution, Position nonCorrectedPosition ) {
+        evolutions.put(evolution, nonCorrectedPosition);
+    }
+
+    public void addEvolution(Evolution<Object> evolution) {
+        evolutions.put(evolution, position);
     }
 
     /**

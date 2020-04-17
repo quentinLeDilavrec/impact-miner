@@ -15,6 +15,7 @@ public class ImpactChain implements JsonSerializable {
     private ImpactElement root;
     private ImpactElement current;
     private Integer size;
+    private String type;
 
     protected ImpactChain(ImpactElement impactingThing) {
 		this.previous = null;
@@ -23,11 +24,12 @@ public class ImpactChain implements JsonSerializable {
         this.size = 1;
     }
 
-    protected ImpactChain(ImpactChain last, ImpactElement content) {
+    protected ImpactChain(ImpactChain last, ImpactElement content, String type) {
 		this.previous = last;
         this.root = last.getRoot();
         this.current = content;
         this.size = 1 + last.size();
+        this.type = type;
     }
 
 	public ImpactElement getRoot() {
@@ -38,6 +40,13 @@ public class ImpactChain implements JsonSerializable {
         return size;
     }
 
+    /**
+     * @return the type
+     */
+    public String getType() {
+        return type;
+    }
+
     public ImpactElement getLast() {
         return current;
     }
@@ -46,8 +55,8 @@ public class ImpactChain implements JsonSerializable {
         return previous;
     }
 
-    public ImpactChain extend(ImpactElement x) {
-        return new ImpactChain(this, x);
+    public ImpactChain extend(ImpactElement x, String type) {
+        return new ImpactChain(this, x, type);
     }
 
     @Override

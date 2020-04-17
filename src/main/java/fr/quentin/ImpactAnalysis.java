@@ -157,15 +157,14 @@ public class ImpactAnalysis {
     public <T> List<ImpactChain> getImpactedTests(Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (Evolution<T> impactingThing : x) {
-            for (Position pos : impactingThing.getImpactingPositions()) {
-                List<CtElement> tmp = this.launcher.getModel().getElements(new FilterEvolvedElements(
-                    Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
-                    pos.getStart(),
-                    pos.getEnd()
-                ));
+            for (Position pos : impactingThing.getPreEvolutionPositions()) {
+                List<CtElement> tmp = this.launcher.getModel()
+                        .getElements(new FilterEvolvedElements(
+                                Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
+                                pos.getStart(), pos.getEnd()));
                 for (CtElement element : tmp) {
                     ImpactElement tmp2 = new ImpactElement(element);
-                    tmp2.getEvolutions().add((Evolution<Object>) impactingThing);
+                    tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
                     chains.add(new ImpactChain(tmp2));
                 }
             }
@@ -193,7 +192,7 @@ public class ImpactAnalysis {
             this.end = position.getEnd();
         }
 
-        public FilterEvolvedElements(String file,int start,int end) {
+        public FilterEvolvedElements(String file, int start, int end) {
             this.file = file;
             this.start = start;
             this.end = end;
@@ -295,7 +294,7 @@ public class ImpactAnalysis {
                             CtExecutable<?> p = c.getParent(CtExecutable.class);
                             if (p != null) {
                                 // System.out.println("ccc");
-                                ImpactChain p2 = current.extend(new ImpactElement(c));
+                                ImpactChain p2 = current.extend(new ImpactElement(c), "call");
                                 Integer fromAlreadyMarched2 = alreadyMarched.get(p2);
                                 if (isTest(p)) {
                                     // System.out.println(p2.size());
@@ -319,7 +318,7 @@ public class ImpactAnalysis {
                                 continue;
                             CtElement p = c.getParent(CtConstructor.class);
                             if (p != null) {
-                                ImpactChain p2 = current.extend(new ImpactElement(c));
+                                ImpactChain p2 = current.extend(new ImpactElement(c), "call");
                                 Integer fromAlreadyMarched2 = alreadyMarched.get(p2);
                                 if (fromAlreadyMarched2 == null || current.size() > fromAlreadyMarched2) {
                                     s.add(p2);

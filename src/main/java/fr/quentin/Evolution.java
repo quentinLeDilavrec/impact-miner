@@ -7,18 +7,20 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
 public interface Evolution<T> extends JsonSerializable {
-    public Set<Position> getImpactingPositions();
+    public Set<Position> getPreEvolutionPositions();
     public Set<Position> getPostEvolutionPositions();
     public T getOriginal();
-    public String getCommitId();
+    public String getCommitIdBefore();
+    public String getCommitIdAfter();
 
     @Override
     default public JsonObject toJson() {
         JsonObject r = new JsonObject();
         r.add("type", JsonNull.INSTANCE);
-        r.addProperty("commitId", getCommitId());
+        r.addProperty("commitIdBefore", getCommitIdBefore());
+        r.addProperty("commitIdAfter", getCommitIdAfter());
         JsonArray before = new JsonArray();
-        for (Position p : getImpactingPositions()) {
+        for (Position p : getPreEvolutionPositions()) {
             before.add(p.toJson());
         }
         r.add("before", before);
