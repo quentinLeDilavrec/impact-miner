@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import java.io.IOException;
 import java.util.ArrayList;

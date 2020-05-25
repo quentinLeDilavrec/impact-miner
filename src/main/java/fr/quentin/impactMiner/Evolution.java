@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import java.util.Set;
 

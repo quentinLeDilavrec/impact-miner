@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -77,13 +77,40 @@ public class Impacts implements JsonSerializable {
                 for (ImpactElement b : c.getValue()) {
                     JsonObject o = new JsonObject();
                     a.add(o);
-                    o.add("vertice", f.apply(vertice.getContent()));
+                    o.add("vertice", f.apply(vertice));
                     o.addProperty("id", vertice.hashCode());
-                    o.add("cause", f.apply(b.getContent()));
+                    o.add("cause", f.apply(b));
                 }
             }
             return a;
         }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((vertice == null) ? 0 : vertice.hashCode());
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            Relations other = (Relations) obj;
+            if (vertice == null) {
+                if (other.vertice != null)
+                    return false;
+            } else if (!vertice.equals(other.vertice))
+                return false;
+            return true;
+        }
+
+        
     }
 
     // TODO try to remove ImpactElement wrapper
@@ -182,8 +209,8 @@ public class Impacts implements JsonSerializable {
                     JsonObject o = new JsonObject();
                     o.addProperty("id", y.hashCode());
                     o.add("value", f.apply(y.getContent()));
-                    for (Evolution<?> e : y.getEvolutions()) {
-                        o.add("evolution", e.toJson());
+                    for (Object e : y.getEvolutions()) {
+                        o.add("evolution", f.apply(e));
                         break;
                     }
                     return o;
@@ -193,13 +220,49 @@ public class Impacts implements JsonSerializable {
                     ImpactElement vert = y.getVertice();
                     o.addProperty("id", vert.hashCode());
                     o.add("value", f.apply(vert.getContent()));
-                    for (Evolution<?> e : vert.getEvolutions()) {
-                        o.add("evolution", e.toJson());
+                    for (Object e : vert.getEvolutions()) {
+                        o.add("evolution", f.apply(e));
                         break;
                     }
                     o.addProperty("depth", y.getDepth());
-                    o.add("causes", h.apply(y.getCauses().getOrDefault("call", new HashSet<>())));// TODO more than call
-                    o.add("effects", h.apply(y.getEffects().getOrDefault("call", new HashSet<>())));
+                    // Set<ImpactElement> causes;
+                    // Set<ImpactElement> effects;
+                    // Set<ImpactElement> call_causes = y.getCauses().get("call");
+                    // Set<ImpactElement> call_effects = y.getEffects().get("call");
+                    // Set<ImpactElement> expand2exe_causes = y.getCauses().get("expand to
+                    // executable");
+                    // Set<ImpactElement> expand2exe_effects = y.getEffects().get("expand to
+                    // executable");
+                    // if ((call_causes != null || call_effects != null)
+                    // && (expand2exe_causes == null && expand2exe_effects == null)) {
+                    // o.addProperty("type", "call");
+                    // causes = call_causes != null ? call_causes : new HashSet<>();
+                    // effects = call_effects != null ? call_effects : new HashSet<>();
+                    // } else if ((expand2exe_causes != null || expand2exe_effects != null)
+                    // && (call_causes == null && call_effects == null)) {
+                    // o.addProperty("type", "expand to executable");
+                    // causes = expand2exe_causes != null ? expand2exe_causes : new HashSet<>();
+                    // effects = expand2exe_effects != null ? expand2exe_effects : new HashSet<>();
+                    // } else {
+                    // o.addProperty("type", "unknown");
+                    // causes = new HashSet<>();
+                    // effects = new HashSet<>();
+                    // }
+                    // TODO label relations
+                    Set<ImpactElement> causes = new HashSet<>();
+                    Set<ImpactElement> effects = new HashSet<>();
+                    Set<ImpactElement> call_causes = y.getCauses().getOrDefault("call", new HashSet<>());
+                    Set<ImpactElement> call_effects = y.getEffects().getOrDefault("call", new HashSet<>());
+                    Set<ImpactElement> expand2exe_causes = y.getCauses().getOrDefault("expand to executable",
+                            new HashSet<>());
+                    Set<ImpactElement> expand2exe_effects = y.getEffects().getOrDefault("expand to executable",
+                            new HashSet<>());
+                    causes.addAll(call_causes);
+                    causes.addAll(expand2exe_causes);
+                    effects.addAll(call_effects);
+                    effects.addAll(expand2exe_effects);
+                    o.add("causes", h.apply(causes));
+                    o.add("effects", h.apply(effects));
                     return o;
                     // } else if (x instanceof SourcePositionHolder) {
                     // SourcePositionHolder y = (SourcePositionHolder) x;

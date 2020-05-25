@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;

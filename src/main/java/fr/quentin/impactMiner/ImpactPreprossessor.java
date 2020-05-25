@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;

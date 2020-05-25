@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -18,43 +18,43 @@ import spoon.reflect.declaration.CtElement;
 public class ImpactElement {
     private Position position;
     private CtElement content;
-    private Map<Evolution<Object>,Position> evolutions = new HashMap<>();
+    private Map<Object,Position> evolutions = new HashMap<>();
 
     /**
      * @return the getEvolutionWithNonCorrectedPosition
      */
-    public Map<Evolution<Object>,Position> getEvolutionWithNonCorrectedPosition() {
+    public Map<Object,Position> getEvolutionWithNonCorrectedPosition() {
         return evolutions;
     }
 
-    ImpactElement(CtElement e) throws IOException {
+    public ImpactElement(CtElement e) throws IOException {
         this(e.getPosition());
         this.content = e;
     }
 
-    ImpactElement(Position position) {
+    public ImpactElement(Position position) {
         this.position = position;
     }
 
-    ImpactElement(String file, int start, int end) {
+    public ImpactElement(String file, int start, int end) {
         this.position = new Position(file, start, end);
     }
 
-    ImpactElement(SourcePosition p) throws IOException {
+    public ImpactElement(SourcePosition p) throws IOException {
         this(p.getFile().getCanonicalPath(), p.getSourceStart(), p.getSourceEnd());
     }
 
-    ImpactElement(String file, int start, int end, CtElement content) {
+    public ImpactElement(String file, int start, int end, CtElement content) {
         this(file, start, end);
         this.content = content;
     }
 
-    ImpactElement(SourcePosition position, CtElement content) throws IOException {
+    public ImpactElement(SourcePosition position, CtElement content) throws IOException {
         this(position);
         this.content = content;
     }
 
-    ImpactElement(Position position, CtElement content) {
+    public ImpactElement(Position position, CtElement content) {
         this.position = position;
         this.content = content;
     }
@@ -69,15 +69,15 @@ public class ImpactElement {
     /**
      * @return the evolutions
      */
-    public Set<Evolution<Object>> getEvolutions() {
+    public Set<Object> getEvolutions() {
         return evolutions.keySet();
     }
 
-    public void addEvolution(Evolution<Object> evolution, Position nonCorrectedPosition ) {
+    public void addEvolution(Object evolution, Position nonCorrectedPosition ) {
         evolutions.put(evolution, nonCorrectedPosition);
     }
 
-    public void addEvolution(Evolution<Object> evolution) {
+    public void addEvolution(Object evolution) {
         evolutions.put(evolution, position);
     }
 

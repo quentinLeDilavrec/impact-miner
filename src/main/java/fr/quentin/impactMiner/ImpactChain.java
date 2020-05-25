@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -17,7 +17,7 @@ public class ImpactChain implements JsonSerializable {
     private Integer size;
     private String type;
 
-    protected ImpactChain(ImpactElement impactingThing) {
+    public ImpactChain(ImpactElement impactingThing) {
 		this.previous = null;
         this.root = impactingThing;
         this.current = impactingThing;
@@ -78,6 +78,7 @@ public class ImpactChain implements JsonSerializable {
 
     @Override
     public boolean equals(Object obj) {
+        // TODO use more attributes to be able to analyse (here compare) more complexe chains
         if (obj instanceof ImpactChain) {
             ImpactChain x = (ImpactChain) obj;
             return x.getRoot().equals(getRoot()) && x.getLast().equals(getLast());

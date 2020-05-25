@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -8,7 +8,6 @@ public class Position implements JsonSerializable {
     int start;
     int end;
 
-
     public Position(String filePath, int start, int end) {
         this.file = filePath;
         this.start = start;
@@ -16,7 +15,7 @@ public class Position implements JsonSerializable {
     }
 
     // public String getRoot() {
-    //     return root;
+    // return root;
     // }
 
     public String getFilePath() {
