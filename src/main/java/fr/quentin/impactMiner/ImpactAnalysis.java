@@ -207,7 +207,7 @@ public class ImpactAnalysis {
             }
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
-        return exploreAST2(chains);
+        return exploreAST2(chains, onTests);
     }
 
     public <T> List<ImpactChain> getImpactedTests(Collection<Evolution<T>> x) throws IOException {
@@ -226,7 +226,7 @@ public class ImpactAnalysis {
             }
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
-        return exploreAST2(chains);
+        return exploreAST2(chains, true);
     }
 
     public <T> List<ImpactChain> getImpactedTestsPostEvolution(Collection<Evolution<T>> x) throws IOException {
@@ -245,7 +245,7 @@ public class ImpactAnalysis {
             }
         }
         Logger.getLogger("getImpactedTestsPostEvolution").info(Integer.toString(chains.size()));
-        return exploreAST2(chains);
+        return exploreAST2(chains, true);
     }
 
     // public <R> List<ImpactChain<CtElement,R>> getImpactedTests(String file, int
@@ -319,7 +319,7 @@ public class ImpactAnalysis {
         }
     }
 
-    private List<ImpactChain> exploreAST2(final Set<ImpactChain> impactChains) throws IOException {
+    private List<ImpactChain> exploreAST2(final Set<ImpactChain> impactChains, boolean getOnTests) throws IOException {
         final List<ImpactChain> finishedChains = new ArrayList<ImpactChain>();
         final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>(impactChains);
         final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<ImpactChain, Integer>();
@@ -333,7 +333,11 @@ public class ImpactAnalysis {
                     finishedChains.add(current);
                 } else {
                     if (weight < 0) {
-                        Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
+                        if (getOnTests) {
+                            Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
+                        } else {
+                            finishedChains.add(current);
+                        }
                         continue;
                     }
                     Object z = current_elem.getMetadata("call");
