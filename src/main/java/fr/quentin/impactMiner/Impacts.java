@@ -13,6 +13,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtExecutable;
 
 public class Impacts implements JsonSerializable {
 
@@ -110,7 +111,6 @@ public class Impacts implements JsonSerializable {
             return true;
         }
 
-        
     }
 
     // TODO try to remove ImpactElement wrapper
@@ -127,7 +127,10 @@ public class Impacts implements JsonSerializable {
         for (ImpactChain si : x) {
             verticesPerRoots.putIfAbsent(si.getRoot(), new HashMap<>());
             verticesPerTests.putIfAbsent(si.getLast(), new HashMap<>());
-            tests.add(si.getLast());
+            if (si.getLast().getContent() instanceof CtExecutable<?>
+                    && ImpactAnalysis.isTest((CtExecutable<?>) si.getLast().getContent())) {
+                tests.add(si.getLast());
+            }
             roots.add(si.getRoot());
             addCause(si, null, null);
             addCauseBis(si);
