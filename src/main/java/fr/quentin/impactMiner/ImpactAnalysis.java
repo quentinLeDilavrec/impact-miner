@@ -119,7 +119,8 @@ public class ImpactAnalysis {
             if (relativized != null) {
                 CtType<?> aaaaa = typesIndexByFileName.put(relativized.toString(), type);
                 try {
-                    if(type.getPosition().getFile().toString().equals(aaaaa.getPosition().getFile().toString())){
+
+                    if(aaaaa!=null && type.getPosition().getFile().toString().equals(aaaaa.getPosition().getFile().toString())){
                         if (aaaaa.getPosition().getSourceStart()<=type.getPosition().getSourceStart() && aaaaa.getPosition().getSourceEnd()>=type.getPosition().getSourceEnd()) {
                             typesIndexByFileName.put(relativized.toString(), aaaaa);
                         }
