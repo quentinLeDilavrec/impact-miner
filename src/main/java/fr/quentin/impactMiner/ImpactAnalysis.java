@@ -118,8 +118,14 @@ public class ImpactAnalysis {
 
             if (relativized != null) {
                 CtType<?> aaaaa = typesIndexByFileName.put(relativized.toString(), type);
-                if (aaaaa != null) {
-                    throw new RuntimeException(relativized.toString() + " apear multiple times for different CtType");
+                try {
+                    if(type.getPosition().getFile().toString().equals(aaaaa.getPosition().getFile().toString())){
+                        if (aaaaa.getPosition().getSourceStart()<=type.getPosition().getSourceStart() && aaaaa.getPosition().getSourceEnd()>=type.getPosition().getSourceEnd()) {
+                            typesIndexByFileName.put(relativized.toString(), aaaaa);
+                        }
+                    }
+                } finally {
+
                 }
             }
         }
