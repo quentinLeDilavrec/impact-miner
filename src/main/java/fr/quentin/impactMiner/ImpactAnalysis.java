@@ -205,7 +205,11 @@ public class ImpactAnalysis {
             FilterEvolvedElements filter = new FilterEvolvedElements(
                     Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                     pos.getStart(), pos.getEnd());
-            List<CtElement> tmp = this.typesIndexByFileName.get(pos.getFilePath()).getElements(filter);
+            CtType<?> tmp0 = this.typesIndexByFileName.get(pos.getFilePath());
+            if (tmp0==null) {
+                continue;
+            }
+            List<CtElement> tmp = tmp0.getElements(filter);
             // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
             for (CtElement element : tmp) {
                 ImpactElement tmp2 = new ImpactElement(element);
