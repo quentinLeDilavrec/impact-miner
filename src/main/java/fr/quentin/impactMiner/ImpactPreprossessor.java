@@ -5,8 +5,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import spoon.reflect.code.CtAbstractInvocation;
 import spoon.reflect.code.CtAnnotationFieldAccess;
+import spoon.reflect.code.CtArrayAccess;
 import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssert;
@@ -26,6 +29,7 @@ import spoon.reflect.code.CtContinue;
 import spoon.reflect.code.CtDo;
 import spoon.reflect.code.CtExecutableReferenceExpression;
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtFieldWrite;
 import spoon.reflect.code.CtFor;
@@ -51,6 +55,7 @@ import spoon.reflect.code.CtTry;
 import spoon.reflect.code.CtTryWithResource;
 import spoon.reflect.code.CtTypeAccess;
 import spoon.reflect.code.CtUnaryOperator;
+import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.CtWhile;
@@ -76,10 +81,17 @@ import spoon.reflect.declaration.CtPackageDeclaration;
 import spoon.reflect.declaration.CtPackageExport;
 import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtProvidedService;
+import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.CtTypeParameter;
 import spoon.reflect.declaration.CtUsedService;
+import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtFieldReference;
+import spoon.reflect.reference.CtParameterReference;
+import spoon.reflect.reference.CtTypeReference;
+import spoon.reflect.reference.CtVariableReference;
 import spoon.reflect.visitor.CtScanner;
+import spoon.reflect.visitor.CtVisitable;
 
 /**
  * Mine relations from declarations to references.
@@ -116,61 +128,25 @@ final class ImpactPreprossessor extends CtScanner {
         }
     }
 
-    @Override
-    public <T> void visitCtInvocation(final CtInvocation<T> invocation) {
-        super.visitCtInvocation(invocation);
-        final CtExecutableReference<T> a = invocation.getExecutable();
-        insertMetaData(a, "call", new HashSet<>(), invocation);
+    public <T> void visitCtAbstractInvocation(final CtAbstractInvocation<T> executable) {
+        final CtExecutableReference<T> a = executable.getExecutable();
 
         final CtExecutable<T> b = a.getDeclaration();
         if (b != null) {
-            insertMetaData(b, "call", new HashSet<>(), invocation);
-            // counterMetaData(b, "call count");
+            insertMetaData(b, "call", new HashSet<>(), executable);
         }
-        // should solve more links
-        // if (invocation.getExecutable().isConstructor()) {
-        //     return;
-        // }
-        // for (CtExecutableReference<?> executable : allMethodsReferences) {
-        //     if (invocation.getExecutable().getSimpleName().equals(executable.getSimpleName())
-        //             && invocation.getExecutable().isOverriding(executable)) {
+    }
 
-        //         // allMethods.add(executable);
-
-        //         // invocation <--> executable
-        //         insertMetaData(executable, "call", new HashSet<>(), invocation);
-        //         CtExecutable<?> decl = executable.getDeclaration();
-        //         if (decl != null) {
-        //             insertMetaData(decl, "call", new HashSet<>(), invocation);
-        //         }
-        //         // System.out.println(""
-        //         // // invocation.getType().getDeclaration() +
-        //         // + invocation.getPosition().getCompilationUnit().getDeclaredPackage() + "."
-        //         // + invocation.getPosition().getCompilationUnit().getFile().getName() + ":"
-        //         // + invocation.getPosition().getSourceStart() + ":" +
-        //         // invocation.getPosition().getSourceEnd()
-        //         // + "-->" + executable.getDeclaringType() + "." + executable
-        //         // + ":" + executable.getType()
-        //         // );
-        //     }
-        // }
-
-        invocation.getType();
-        invocation.getTypeCasts();
+    @Override
+    public <T> void visitCtInvocation(final CtInvocation<T> invocation) {
+        super.visitCtInvocation(invocation);
+        visitCtAbstractInvocation(invocation);
     }
 
     @Override
     public <T> void visitCtConstructorCall(final CtConstructorCall<T> constructor) {
         super.visitCtConstructorCall(constructor);
-        final CtExecutableReference<T> a = constructor.getExecutable();
-        insertMetaData(a, "call", new HashSet<>(), constructor);
-        // counterMetaData(a, "call count");
-
-        final CtExecutable<T> b = a.getDeclaration();
-        if (b != null) {
-            insertMetaData(b, "call", new HashSet<>(), constructor);
-            // counterMetaData(b, "call count");
-        }
+        visitCtAbstractInvocation(constructor);
     }
 
     // TODO take inspiration from gumtree-spoon
@@ -193,23 +169,32 @@ final class ImpactPreprossessor extends CtScanner {
     // annotationFieldAccess.getTypeCasts();
     // }
 
-    // @Override
-    // public <T> void visitCtCatchVariable(final CtCatchVariable<T> catchVariable)
-    // {
-    // super.visitCtCatchVariable(catchVariable);
-    // catchVariable.getReference();
-    // catchVariable.getType();
-    // catchVariable.getMultiTypes();
-    // }
+    @Override
+    public <T> void visitCtCatchVariable(final CtCatchVariable<T> catchVariable) {
+        super.visitCtCatchVariable(catchVariable);
+        // catchVariable.getReference();
+        // catchVariable.getType();
+        // catchVariable.getMultiTypes();
+        visitCtVariable(catchVariable);
+    }
 
-    // @Override
-    // public <T> void visitCtClass(final CtClass<T> ctClass) {
-    // super.visitCtClass(ctClass);
-    // ctClass.getUsedTypes(true);
-    // ctClass.getUsedTypes(false);
-    // ctClass.getReference();
-    // // TODO is there more? (not sure)
-    // }
+    @Override
+    public <T> void visitCtClass(final CtClass<T> ctClass) {
+        super.visitCtClass(ctClass);
+        // ctClass.getUsedTypes(true);
+        // ctClass.getUsedTypes(false);
+        // ctClass.getReference();
+
+        final Set<CtTypeReference<?>> a = ctClass.getUsedTypes(false);
+
+        for (CtTypeReference<?> b : a) {
+            final CtType<?> c = b.getDeclaration();
+            if (c != null) {
+                insertMetaData(c, "type", new HashSet<>(), ctClass);
+            }
+        }
+        // TODO is there more? (not sure)
+    }
 
     // @Override
     // public void visitCtCompilationUnit(final CtCompilationUnit compilationUnit) {
@@ -241,29 +226,41 @@ final class ImpactPreprossessor extends CtScanner {
     // expression.getTypeCasts();
     // }
 
-    // @Override
-    // public <T> void visitCtField(final CtField<T> f) {// inherit CtNamedElement
-    // and CtTypedElement
-    // super.visitCtField(f);
-    // f.getReference();
-    // f.getType();
-    // }
+    @Override
+    public <T> void visitCtField(final CtField<T> f) {// inherit CtNamedElement and CtTypedElement
+        super.visitCtField(f);
+        // f.getReference();
+        // f.getType();
 
-    // @Override
-    // public <T> void visitCtFieldRead(final CtFieldRead<T> fieldRead) {
-    // super.visitCtFieldRead(fieldRead);
-    // fieldRead.getType();
-    // fieldRead.getVariable();
-    // fieldRead.getTypeCasts();
-    // }
+        visitCtVariable(f);
+    }
 
-    // @Override
-    // public <T> void visitCtFieldWrite(final CtFieldWrite<T> fieldWrite) {
-    // super.visitCtFieldWrite(fieldWrite);
-    // fieldWrite.getType();
-    // fieldWrite.getVariable();
-    // fieldWrite.getTypeCasts();
-    // }
+    @Override
+    public <T> void visitCtFieldRead(final CtFieldRead<T> fieldRead) {
+        super.visitCtFieldRead(fieldRead);
+        // fieldRead.getType();
+        // fieldRead.getVariable();
+        // fieldRead.getTypeCasts();
+        visitCtFieldAccess(fieldRead);
+    }
+
+    @Override
+    public <T> void visitCtFieldWrite(final CtFieldWrite<T> fieldWrite) {
+        super.visitCtFieldWrite(fieldWrite);
+        // fieldWrite.getType();
+        // fieldWrite.getVariable();
+        // fieldWrite.getTypeCasts();
+        visitCtFieldAccess(fieldWrite);
+    }
+
+    public <T> void visitCtFieldAccess(final CtFieldAccess<T> field) {
+        CtFieldReference<T> a = field.getVariable();
+
+        final CtField<T> b = a.getDeclaration();
+        if (b != null) {
+            insertMetaData(b, "variable", new HashSet<>(), field);
+        }
+    }
 
     // @Override
     // public void visitCtImport(final CtImport ctImport) {
@@ -280,32 +277,52 @@ final class ImpactPreprossessor extends CtScanner {
     // @Override
     // public <T> void visitCtLambda(final CtLambda<T> lambda) {
     // super.visitCtLambda(lambda);
-    // lambda.getReference();
-    // lambda.getType();
-    // lambda.getTypeCasts();
+    // // lambda.getReference();
+    // // lambda.getType();
+    // // lambda.getTypeCasts();
     // }
 
-    // @Override
-    // public <T> void visitCtLiteral(final CtLiteral<T> literal) {
-    // super.visitCtLiteral(literal);
-    // literal.getType();
-    // literal.getTypeCasts();
-    // }
+    @Override
+    public <T> void visitCtLiteral(final CtLiteral<T> literal) {
+        super.visitCtLiteral(literal);
+        // literal.getType();
+        // literal.getTypeCasts();
 
-    // @Override
-    // public <T> void visitCtLocalVariable(final CtLocalVariable<T> localVariable)
-    // {
-    // super.visitCtLocalVariable(localVariable);
-    // localVariable.getReference();
-    // localVariable.getType();
-    // }
+        CtTypeReference<T> a = literal.getType();
+
+        final CtType<T> b = a.getDeclaration();
+        if (b != null) {
+            insertMetaData(b, "type", new HashSet<>(), literal);
+        }
+    }
+
+    @Override
+    public <T> void visitCtLocalVariable(final CtLocalVariable<T> localVariable) {
+        super.visitCtLocalVariable(localVariable);
+        // localVariable.getReference();
+        // localVariable.getType();
+
+        visitCtVariable(localVariable);
+    }
+
+    public <T> void visitCtVariable(final CtVariable<T> variable) {
+        // localVariable.getReference();
+        // localVariable.getType();
+
+        CtTypeReference<T> a = variable.getType();
+
+        final CtType<T> b = a.getDeclaration();
+        if (b != null) {
+            insertMetaData(b, "type", new HashSet<>(), variable);
+        }
+    }
 
     // @Override
     // public <T> void visitCtMethod(final CtMethod<T> m) {
     // super.visitCtMethod(m);
-    // m.getReference();
-    // m.getType();
-    // m.getThrownTypes();
+    // // m.getReference();
+    // // m.getType(); // return type
+    // // m.getThrownTypes();
     // }
 
     // @Override
@@ -321,20 +338,42 @@ final class ImpactPreprossessor extends CtScanner {
     // moduleRequirement.getModuleReference();
     // }
 
-    // @Override
-    // public <T> void visitCtNewArray(final CtNewArray<T> newArray) {
-    // super.visitCtNewArray(newArray);
-    // newArray.getType();
-    // newArray.getTypeCasts();
-    // }
+    @Override
+    public <T> void visitCtNewArray(final CtNewArray<T> newArray) {
+        super.visitCtNewArray(newArray);
+        // newArray.getType();
+        // newArray.getTypeCasts();
+
+        CtTypeReference<T> a = newArray.getType();
+
+        final CtType<T> b = a.getDeclaration();
+        if (b != null) {
+            insertMetaData(b, "type", new HashSet<>(), newArray);
+        }
+    }
 
     // @Override
-    // public <T> void visitCtNewClass(final CtNewClass<T> newClass) {
+    // public <T> void visitCtNewClass(final CtNewClass<T> newClass) { // already
+    // handled by CtConstructorCall
     // super.visitCtNewClass(newClass);
     // newClass.getType();
-    // newClass.getTypeCasts();
+    // // newClass.getTypeCasts();
     // newClass.getExecutable();
     // newClass.getActualTypeArguments();
+
+    // CtTypeReference<T> a = newClass.getType();
+
+    // final CtType<T> b = a.getDeclaration();
+    // if (b != null) {
+    // insertMetaData(b, "type", new HashSet<>(), newClass);
+    // }
+
+    // CtTypeReference<T> c = newClass.getType();
+
+    // final CtType<T> d = c.getDeclaration();
+    // if (d != null) {
+    // insertMetaData(d, "call", new HashSet<>(), newClass);
+    // }
     // }
 
     // @Override
@@ -365,12 +404,18 @@ final class ImpactPreprossessor extends CtScanner {
     // moduleExport.getTargetExport();
     // }
 
-    // @Override
-    // public <T> void visitCtParameter(final CtParameter<T> parameter) {
-    // super.visitCtParameter(parameter);
-    // parameter.getReference();
-    // parameter.getType();
-    // }
+    @Override
+    public <T> void visitCtParameter(final CtParameter<T> parameter) { // CtVariableReference
+        super.visitCtParameter(parameter);
+        // parameter.getType();
+
+        CtTypeReference<T> a = parameter.getType();
+
+        final CtType<T> b = a.getDeclaration();
+        if (b != null) {
+            insertMetaData(b, "type", new HashSet<>(), parameter);
+        }
+    }
 
     // @Override
     // public void visitCtProvidedService(final CtProvidedService
@@ -383,18 +428,24 @@ final class ImpactPreprossessor extends CtScanner {
     // @Override
     // public <T> void visitCtSuperAccess(final CtSuperAccess<T> f) {
     // super.visitCtSuperAccess(f);
-    // f.getVariable();
-    // f.getTypeCasts();
-    // f.getType();
+    // // f.getVariable();
+    // // f.getTypeCasts();
+    // // f.getType();
     // }
 
-    // @Override
-    // public <T> void visitCtTypeAccess(final CtTypeAccess<T> typeAccess) {
-    // super.visitCtTypeAccess(typeAccess);
-    // typeAccess.getType();
-    // typeAccess.getAccessedType();
-    // typeAccess.getTypeCasts();
-    // }
+    @Override
+    public <T> void visitCtTypeAccess(final CtTypeAccess<T> typeAccess) {
+        super.visitCtTypeAccess(typeAccess);
+        // typeAccess.getType();
+        // typeAccess.getAccessedType();
+        // typeAccess.getTypeCasts();
+        CtTypeReference<T> a = typeAccess.getAccessedType();
+
+        final CtType<T> b = a.getDeclaration();
+        if (b != null) {
+            insertMetaData(b, "type", new HashSet<>(), typeAccess);
+        }
+    }
 
     // @Override
     // public void visitCtTypeParameter(final CtTypeParameter typeParameter) {
@@ -416,22 +467,34 @@ final class ImpactPreprossessor extends CtScanner {
     // usedService.getServiceType();
     // }
 
-    // @Override
-    // public <T> void visitCtVariableRead(final CtVariableRead<T> variableRead) {
-    // super.visitCtVariableRead(variableRead);
-    // variableRead.getType();
-    // variableRead.getVariable();
-    // variableRead.getTypeCasts();
-    // }
+    @Override
+    public <T> void visitCtVariableRead(final CtVariableRead<T> variableRead) {
+        super.visitCtVariableRead(variableRead);
+        // variableRead.getType();
+        // variableRead.getVariable();
+        // variableRead.getTypeCasts();
 
-    // @Override
-    // public <T> void visitCtVariableWrite(final CtVariableWrite<T> variableWrite)
-    // {
-    // super.visitCtVariableWrite(variableWrite);
-    // variableWrite.getType();
-    // variableWrite.getVariable();
-    // variableWrite.getTypeCasts();
-    // }
+        visitCtVariableAccess(variableRead);
+    }
+
+    @Override
+    public <T> void visitCtVariableWrite(final CtVariableWrite<T> variableWrite) {
+        super.visitCtVariableWrite(variableWrite);
+        // variableWrite.getType();
+        // variableWrite.getVariable();
+        // variableWrite.getTypeCasts();
+
+        visitCtVariableAccess(variableWrite);
+    }
+
+    public <T> void visitCtVariableAccess(final CtVariableAccess<T> variableAccess) {
+        CtVariableReference<T> a = variableAccess.getVariable();
+
+        final CtVariable<T> b = a.getDeclaration();
+        if (b != null) {
+            insertMetaData(b, "variable", new HashSet<>(), variableAccess);
+        }
+    }
 
     // MORE direct refs access not found
 
@@ -456,17 +519,65 @@ final class ImpactPreprossessor extends CtScanner {
     // anonymousExec.getClass();
     // }
 
-    // @Override
-    // public <T> void visitCtArrayRead(final CtArrayRead<T> arrayRead) {
-    // super.visitCtArrayRead(arrayRead);
-    // arrayRead.getClass();
-    // }
+    @Override
+    public <T> void visitCtArrayRead(final CtArrayRead<T> arrayRead) {
+        super.visitCtArrayRead(arrayRead);
+        CtExpression<?> a = arrayRead.getTarget();
+        if (a instanceof CtVisitable) {
+            ((CtVisitable) a).accept(this);
+        } else if (a instanceof CtVariableAccess) {
+            visitCtVariableAccess((CtVariableAccess<?>) a);
+        }
+    }
 
-    // @Override
-    // public <T> void visitCtArrayWrite(final CtArrayWrite<T> arrayWrite) {
-    // super.visitCtArrayWrite(arrayWrite);
-    // arrayWrite.getClass();
-    // }
+    @Override
+    public <T> void visitCtArrayWrite(final CtArrayWrite<T> arrayWrite) {
+        super.visitCtArrayWrite(arrayWrite);
+        CtExpression<?> a = arrayWrite.getTarget();
+        if (a instanceof CtVisitable) {
+            ((CtVisitable) a).accept(this);
+        } else if (a instanceof CtExpression) {
+            visitCtExpression((CtExpression<?>) a);
+        }
+    }
+
+    public <T> void visitCtExpression(final CtExpression<T> expression) {
+        if (expression instanceof CtVisitable) {
+            ((CtVisitable) expression).accept(this);
+        } else if (expression instanceof CtVariableAccess) {
+            visitCtVariableAccess((CtVariableAccess<?>) expression);
+        } else if (expression instanceof CtFieldAccess) {
+            visitCtFieldAccess((CtFieldAccess<?>) expression);
+        } else if (expression instanceof CtBinaryOperator) {
+            visitCtBinaryOperator((CtBinaryOperator<?>) expression);
+        } else if (expression instanceof CtUnaryOperator) {
+            visitCtUnaryOperator((CtUnaryOperator<?>) expression);
+        } else if (expression instanceof CtArrayAccess) {
+            visitCtArrayAccess((CtArrayAccess<?,?>) expression);
+        }
+    }
+
+    public <T,E extends CtExpression<?>> void visitCtArrayAccess(final CtArrayAccess<T,E> array) {
+        CtExpression<?> a = array.getTarget();
+        if (a instanceof CtVisitable) {
+            ((CtVisitable) a).accept(this);
+        } else if (a instanceof CtExpression) {
+            visitCtExpression((CtExpression<?>) a);
+        }
+    }
+
+    @Override
+    public <T> void visitCtBinaryOperator(CtBinaryOperator<T> operator) {
+        super.visitCtBinaryOperator(operator);
+        visitCtExpression(operator.getLeftHandOperand());
+        visitCtExpression(operator.getRightHandOperand());
+    }
+
+    @Override
+    public <T> void visitCtUnaryOperator(CtUnaryOperator<T> operator) {
+        super.visitCtUnaryOperator(operator);
+        visitCtExpression(operator.getOperand());
+    }
 
     // @Override
     // public <T> void visitCtAssert(final CtAssert<T> asserted) {

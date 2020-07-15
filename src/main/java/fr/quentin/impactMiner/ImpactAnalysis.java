@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import javax.management.Query;
+
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -32,27 +34,48 @@ import java.util.logging.Logger;
 
 import spoon.MavenLauncher;
 import spoon.SpoonAPI;
+import spoon.processing.FactoryAccessor;
+import spoon.reflect.code.CtAbstractInvocation;
+import spoon.reflect.code.CtArrayAccess;
+import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtConstructorCall;
+import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLambda;
+import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtVariableAccess;
+import spoon.reflect.code.CtVariableRead;
+import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.cu.SourcePositionHolder;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtAnonymousExecutable;
+import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtConstructor;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtType;
+import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.ParentNotInitializedException;
+import spoon.reflect.factory.Factory;
+import spoon.reflect.path.CtRole;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtLocalVariableReference;
 import spoon.reflect.visitor.Filter;
+import spoon.reflect.visitor.chain.CtQuery;
 import spoon.reflect.visitor.filter.TypeFilter;
+import spoon.reflect.visitor.filter.VariableAccessFilter;
 import spoon.support.reflect.declaration.CtClassImpl;
 import spoon.support.reflect.declaration.CtMethodImpl;
+import spoon.support.util.internal.MapUtils;
 
 public class ImpactAnalysis {
+
+    static private Logger logger = Logger.getLogger(ImpactAnalysis.class.getName());
 
     private Integer maxChainLength;
     private SpoonAPI launcher;
@@ -119,9 +142,10 @@ public class ImpactAnalysis {
             if (relativized != null) {
                 CtType<?> aaaaa = typesIndexByFileName.put(relativized.toString(), type);
                 try {
-
-                    if(aaaaa!=null && type.getPosition().getFile().toString().equals(aaaaa.getPosition().getFile().toString())){
-                        if (aaaaa.getPosition().getSourceStart()<=type.getPosition().getSourceStart() && aaaaa.getPosition().getSourceEnd()>=type.getPosition().getSourceEnd()) {
+                    if (aaaaa != null && type.getPosition().getFile().toString()
+                            .equals(aaaaa.getPosition().getFile().toString())) {
+                        if (aaaaa.getPosition().getSourceStart() <= type.getPosition().getSourceStart()
+                                && aaaaa.getPosition().getSourceEnd() >= type.getPosition().getSourceEnd()) {
                             typesIndexByFileName.put(relativized.toString(), aaaaa);
                         }
                     }
@@ -131,7 +155,6 @@ public class ImpactAnalysis {
             }
         }
 
-        // this.testEntries = new HashMap<>();
         this.allMethodsReferences = new ArrayList<>();
         for (CtMethod<?> m : launcher.getModel().getElements(new TypeFilter<>(CtMethod.class))) {
             this.allMethodsReferences.add(m.getReference());
@@ -206,7 +229,7 @@ public class ImpactAnalysis {
                     Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                     pos.getStart(), pos.getEnd());
             CtType<?> tmp0 = this.typesIndexByFileName.get(pos.getFilePath());
-            if (tmp0==null) {
+            if (tmp0 == null) {
                 continue;
             }
             List<CtElement> tmp = tmp0.getElements(filter);
@@ -330,85 +353,290 @@ public class ImpactAnalysis {
         }
     }
 
-    private List<ImpactChain> exploreAST2(final Set<ImpactChain> impactChains, boolean getOnTests) throws IOException {
-        final List<ImpactChain> finishedChains = new ArrayList<ImpactChain>();
-        final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>(impactChains);
-        final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<ImpactChain, Integer>();
+    /**
+     * Explorer
+     */
+    private class Explorer {
+        public final List<ImpactChain> finishedChains = new ArrayList<ImpactChain>();
+        public final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>();
+        public final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<ImpactChain, Integer>();
+        private boolean getOnTests;
 
-        while (!processedChains.isEmpty()) {
-            ImpactChain current = processedChains.poll();
-            CtElement current_elem = current.getLast().getContent();
-            Integer weight = alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
-            if (current_elem instanceof CtExecutable) {
-                if (isTest((CtExecutable<?>) current_elem)) {
-                    finishedChains.add(current);
-                } else {
-                    if (weight < 0) {
-                        if (getOnTests) {
-                            Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
+        public Explorer(Set<ImpactChain> impactChains, boolean getOnTests) {
+            processedChains.addAll(impactChains);
+            this.getOnTests = getOnTests;
+        }
+
+        public void finishChain(ImpactChain chain) {
+            if (getOnTests) {
+                logger.info("Ignoring redundant impact path");
+            } else {
+                finishedChains.add(chain);
+            }
+        }
+
+        public <T> void followAbstractInvocations(ImpactChain current, CtExecutable<T> current_elem, Integer weight)
+                throws IOException {
+            Object z = current_elem.getMetadata("call");
+            if (z instanceof Collection) {
+                Collection<?> a = (Collection<?>) z;
+                for (Object b : a) {
+                    if (b instanceof CtAbstractInvocation) {
+                        CtAbstractInvocation<?> invocation = (CtAbstractInvocation<?>) b;
+                        if (!invocation.getPosition().isValidPosition())
+                            continue;
+                        ImpactChain extended = current.extend(new ImpactElement(invocation), "call");
+                        Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+                        if (fromAlreadyMarched2 == null || weight - 10 > fromAlreadyMarched2) {
+                            processedChains.add(extended);
+                            alreadyMarchedChains.put(extended, weight - 10);
                         } else {
-                            finishedChains.add(current);
+                            Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
                         }
-                        continue;
-                    }
-                    Object z = current_elem.getMetadata("call");
-                    if (z instanceof Collection) {
-                        Collection<?> a = (Collection<?>) z;
-                        for (Object b : a) {
-                            if (b instanceof CtInvocation) {
-                                CtInvocation<?> invocation = (CtInvocation<?>) b;
-                                if (!invocation.getPosition().isValidPosition())
-                                    continue;
-                                ImpactChain extended = current.extend(new ImpactElement(invocation), "call");
-                                Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
-                                if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
-                                    processedChains.add(extended);
-                                    alreadyMarchedChains.put(extended, weight - 1);
-                                } else {
-                                    Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
-                                }
-                            } else if (b instanceof CtConstructorCall) {
-                                CtConstructorCall<?> constructorCall = (CtConstructorCall<?>) b;
-                                if (!constructorCall.getPosition().isValidPosition())
-                                    continue;
-                                ImpactChain extended = current.extend(new ImpactElement(constructorCall), "call");
-                                Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
-                                if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
-                                    processedChains.add(extended);
-                                    alreadyMarchedChains.put(extended, weight - 1);
-                                } else {
-                                    Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
-                                }
-                            } else {
-                                Logger.getLogger("ImpactLogger")
-                                        .info("call MD content not handled " + z.getClass().getName());
-                            }
-                        }
-                    } else if (z == null) {
-                        // Logger.getLogger("ImpactLogger").info("no Meta Data found");
                     } else {
-                        Logger.getLogger("ImpactLogger").info("call MD not handled " + z.getClass().getName());
+                        Logger.getLogger("ImpactLogger").info("call MD content not handled " + z.getClass().getName());
+                    }
+                }
+            } else if (z == null) {
+                // Logger.getLogger("ImpactLogger").info("no Meta Data found");
+            } else {
+                Logger.getLogger("ImpactLogger").info("call MD not handled " + z.getClass().getName());
+            }
+        }
+
+        public <T> void followParameters(ImpactChain current, CtAbstractInvocation<T> current_elem, Integer weight)
+                throws IOException {
+            List<CtExpression<?>> arguments = ((CtAbstractInvocation<?>) current_elem).getArguments();
+            int current_argument_index = 0;
+            for (CtExpression<?> argument : arguments) {
+                if (!argument.getPosition().isValidPosition())
+                    continue;
+                Map<String, Object> more = new HashMap<>();
+                more.put("index", current_argument_index);
+                ImpactChain extended = current.extend(new ImpactElement(argument), "argument", more);
+                Integer existing_weight = alreadyMarchedChains.get(extended);
+                if (existing_weight == null || weight - 1 > existing_weight) {
+                    processedChains.add(extended);
+                    alreadyMarchedChains.put(extended, weight - 1);
+                } else {
+                    logger.info("Ignoring redundant impact path");
+                }
+                current_argument_index++;
+            }
+        }
+
+        public <T> void expand2(ImpactChain current, CtAbstractInvocation<T> current_elem, Integer weight)
+                throws IOException {
+            try {
+                // expand to assignment
+                final CtAssignment<?, ?> parentAssignment = current_elem.getParent(CtAssignment.class);
+                CtExpression<?> assignedExpr = null;
+                if (parentAssignment != null) {
+                    assignedExpr = parentAssignment.getAssigned();
+                }
+                if (assignedExpr != null && assignedExpr instanceof CtVariableWrite) {
+                    final ImpactChain extended = current.extend(new ImpactElement(assignedExpr), "assignment");
+                    alreadyMarchedChains.put(extended, weight - 1);
+                    processedChains.add(extended);
+                } else if (assignedExpr != null && assignedExpr instanceof CtArrayAccess) {
+                    final ImpactChain extended = current.extend(new ImpactElement(assignedExpr), "assignment");
+                    alreadyMarchedChains.put(extended, weight - 1);
+                    processedChains.add(extended);
+                } else {
+                    // expand to variable
+                    final CtVariable<?> parentVariable = current_elem.getParent(CtLocalVariable.class);
+                    if (parentVariable != null) {
+                        final ImpactChain extended = current.extend(new ImpactElement(parentVariable),
+                                "expand to variable");
+                        alreadyMarchedChains.put(extended, weight - 1);
+                        processedChains.add(extended);
+                    } else {
+                        // expand to executable
+                        final CtExecutable<?> parentExecutable = current_elem.getParent(CtExecutable.class);
+                        if (parentExecutable != null) {
+                            final ImpactChain extended = current.extend(new ImpactElement(parentExecutable),
+                                    "expand to executable");
+                            alreadyMarchedChains.put(extended, weight - 1);
+                            processedChains.add(extended);
+                        }
+                    }
+                }
+            } catch (ParentNotInitializedException e) {
+                logger.info("ParentNotInitializedException");
+            }
+        }
+
+        public void expand(ImpactChain current, CtElement current_elem, Integer weight) throws IOException {
+            try {
+
+                // // expand to variable
+                // final CtVariable<?> parentVariable =
+                // current_elem.getParent(CtVariable.class);
+                // final CtAssignment<?,?> aaaa = current_elem.getParent(CtAssignment.class);
+                // CtExpression<?> bbbb = aaaa.getAssigned();
+                // Set<CtVariableAccess<?>> a = findReferencings(bbbb); //
+                // findVariableAccess(bbbb);
+
+                // for (CtVariableAccess<?> b : a) {
+                // Set<CtVariableAccess<?>> c = findReferencables(bbbb);
+                // }
+                // if (parentVariable != null) {
+                // final ImpactChain extended = current.extend(new
+                // ImpactElement(parentVariable),
+                // "expand to variable");
+                // explorer.alreadyMarchedChains.put(extended, weight + 0);
+                // processedChains.add(extended);
+                // } else {
+                // // expand to executable
+                final CtExecutable<?> parentExecutable = current_elem.getParent(CtExecutable.class);
+                if (parentExecutable != null) {
+                    final ImpactChain extended = current.extend(new ImpactElement(parentExecutable),
+                            "expand to executable");
+                    alreadyMarchedChains.put(extended, weight + 0);
+                    processedChains.add(extended);
+                }
+                // }
+            } catch (ParentNotInitializedException e) {
+                logger.info("ParentNotInitializedException");
+            }
+            // TODO expand to type (class for example as a modifier of a class or an extends
+            // or an implements)
+
+            // TODO how should @override or abstract be handled (virtual call)
+        }
+
+        public void followTypes(ImpactChain current, CtElement current_elem, Integer weight) throws IOException {
+            Object z = current_elem.getMetadata("type");
+            if (z == null) {
+            } else if (z instanceof Collection) {
+                Collection<?> a = (Collection<?>) z;
+                for (Object b : a) {
+                    CtType<?> type = (CtType<?>) b;
+                    if (!type.getPosition().isValidPosition())
+                        continue;
+                    ImpactChain extended = current.extend(new ImpactElement(type), "type");
+                    Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+                    if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
+                        processedChains.add(extended);
+                        alreadyMarchedChains.put(extended, weight - 1);
+                    } else {
+                        logger.info("Ignoring redundant impact path");
                     }
                 }
             } else {
-                // expand to executable
-                try {
-                    final CtExecutable<?> parent = current_elem.getParent(CtExecutable.class);
-                    if (parent != null) {
-                        final ImpactChain extended = current.extend(new ImpactElement(parent), "expand to executable");
-                        alreadyMarchedChains.put(extended, weight + 0);
-                        processedChains.add(extended);
-                    }
-                } catch (ParentNotInitializedException e) {
-                    Logger.getLogger("ImpactLogger").info("ParentNotInitializedException");
-                }
-                // TODO expand to type (class for example as a modifier of a class or an extends
-                // or an implements)
-
-                // TODO how should @override or abstract be handled (virtual call)
+                logger.info("type not handled " + z.getClass().getName());
             }
         }
-        return finishedChains;
+
+        public <T> void followReads(ImpactChain current, CtExpression<T> current_elem, Integer weight)
+                throws IOException {
+            CtQuery q = launcher.getFactory().createQuery();
+            Set<CtVariableRead> s = new HashSet(q.setInput(current_elem).list(CtVariableRead.class));
+            for (CtVariableRead x : s) {
+                if (!x.getPosition().isValidPosition())
+                    continue;
+                ImpactChain extended = current.extend(new ImpactElement(x), "read");
+                Integer existing_weight = alreadyMarchedChains.get(extended);
+                if (existing_weight == null || weight - 1 > existing_weight) {
+                    processedChains.add(extended);
+                    alreadyMarchedChains.put(extended, weight - 1);
+                } else {
+                    logger.info("Ignoring redundant impact path");
+                }
+            }
+        }
+
+        public void followWrite(ImpactChain current, CtStatement current_elem, Integer weight) throws IOException {
+            if (current_elem instanceof CtLocalVariable) {
+                CtLocalVariable<?> tmp = (CtLocalVariable<?>) current_elem;
+                CtExecutable<?> enclosingScope = tmp.getParent(CtExecutable.class);
+                CtQuery q = launcher.getFactory().createQuery();
+                Set<CtVariableWrite> s = new HashSet(q.setInput(enclosingScope).list(CtVariableWrite.class));
+                for (CtVariableWrite x : s) {
+                    if (!x.getPosition().isValidPosition())
+                        continue;
+                    ImpactChain extended = current.extend(new ImpactElement(x), "write");
+                    Integer existing_weight = alreadyMarchedChains.get(extended);
+                    if (existing_weight == null || weight - 1 > existing_weight) {
+                        processedChains.add(extended);
+                        alreadyMarchedChains.put(extended, weight - 1);
+                    } else {
+                        logger.info("Ignoring redundant impact path");
+                    }
+                }
+            } else if (current_elem instanceof CtAssignment) {
+                // CtAssignment<?, ?> tmp = (CtAssignment<?, ?>) current_elem;
+            } else {
+
+            }
+        }
+    }
+
+    private List<ImpactChain> exploreAST2(final Set<ImpactChain> impactChains, boolean getOnTests) throws IOException {
+        Explorer explorer = new Explorer(impactChains, getOnTests);
+
+        while (!explorer.processedChains.isEmpty()) {
+            ImpactChain current = explorer.processedChains.poll();
+            CtElement current_elem = current.getLast().getContent();
+            Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
+            if (current_elem instanceof CtExecutable) {
+                if (isTest((CtExecutable<?>) current_elem)) {
+                    explorer.finishChain(current);
+                } else {
+                    if (weight <= 0) {
+                        explorer.finishChain(current);
+                        continue;
+                    }
+                    explorer.followAbstractInvocations(current, (CtExecutable<?>) current_elem, weight);
+                    explorer.followTypes(current, current_elem, weight);
+                }
+            } else if (current_elem instanceof CtAbstractInvocation) {
+                explorer.followParameters(current, (CtAbstractInvocation<?>) current_elem, weight); // parameters deps
+                explorer.expand2(current, (CtAbstractInvocation<?>) current_elem, weight); // returns
+                explorer.followTypes(current, current_elem, weight); // current type
+            } else if (current_elem instanceof CtExpression) {
+                explorer.followReads(current, (CtExpression<?>) current_elem, weight);
+                explorer.followTypes(current, (CtExpression<?>) current_elem, weight); // current type
+            } else if (current_elem instanceof CtStatement) {
+                explorer.followWrite(current, (CtStatement) current_elem, weight);
+                explorer.followTypes(current, current_elem, weight); // current type
+
+                // if (weight <= 0) {
+                // explorer.finishChain(current);
+                // continue;
+                // }
+                // Object z = current_elem.getMetadata("variable");
+                // if (z == null) {
+                // } else if (z instanceof Collection) {
+                // Collection<?> a = (Collection<?>) z;
+                // for (Object b : a) {
+                // CtVariable<?> variable = (CtVariable<?>) b;
+                // if (!variable.getPosition().isValidPosition())
+                // continue;
+                // ImpactChain extended = current.extend(new ImpactElement(variable),
+                // "variable");
+                // Integer fromAlreadyMarched2 = explorer.alreadyMarchedChains.get(extended);
+                // if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
+                // explorer.processedChains.add(extended);
+                // explorer.alreadyMarchedChains.put(extended, weight - 1);
+                // } else {
+                // logger.info("Ignoring redundant impact path");
+                // }
+                // }
+                // } else {
+                // logger.info("type not handled " + z.getClass().getName());
+                // }
+            } else if (current_elem instanceof CtType) {
+                if (weight <= 0) {
+                    explorer.finishChain(current);
+                    continue;
+                }
+                explorer.followTypes(current, current_elem, weight);
+            } else {
+                explorer.expand(current, current_elem, weight);
+            }
+        }
+        return explorer.finishedChains;
     }
 
     private List<ImpactChain> exploreAST(final Set<ImpactChain> impactChains) throws IOException {
