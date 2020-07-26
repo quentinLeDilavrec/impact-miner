@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 import java.security.cert.X509CertSelector;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -14,10 +15,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.stream.Collector;
 
 import javax.management.Query;
 
@@ -38,14 +40,15 @@ import spoon.processing.FactoryAccessor;
 import spoon.reflect.code.CtAbstractInvocation;
 import spoon.reflect.code.CtArrayAccess;
 import spoon.reflect.code.CtAssignment;
+import spoon.reflect.code.CtCatchVariable;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
-import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.cu.SourcePosition;
@@ -59,12 +62,15 @@ import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtType;
+import spoon.reflect.declaration.CtTypedElement;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.ParentNotInitializedException;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.path.CtRole;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtLocalVariableReference;
+import spoon.reflect.reference.CtReference;
+import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.Filter;
 import spoon.reflect.visitor.chain.CtQuery;
 import spoon.reflect.visitor.filter.TypeFilter;
@@ -77,23 +83,25 @@ public class ImpactAnalysis {
 
     static private Logger logger = Logger.getLogger(ImpactAnalysis.class.getName());
 
-    private Integer maxChainLength;
-    private SpoonAPI launcher;
+    private final Integer maxChainLength;
+    private final SpoonAPI launcher;
     // private Map<>
-    private Set<Path> testDirs;
-    private Set<Path> srcDirs;
-    private Set<CtType<?>> testThings = new HashSet<>();
-    private Set<CtType<?>> srcThings = new HashSet<>();
+    private final Set<Path> testDirs;
+    private final Set<Path> srcDirs;
+    private final Set<CtType<?>> testThings = new HashSet<>();
+    private final Set<CtType<?>> srcThings = new HashSet<>();
     private Path rootFolder;
-    private Map<String, CtType<?>> typesIndexByFileName = new HashMap<>();
+    private final Map<String, CtType<?>> typesIndexByFileName = new HashMap<>();
     // private Map<CtType<?>, Set<CtMethod<?>>> testEntries;
-    private List<CtExecutableReference<?>> allMethodsReferences;
+    private final List<CtExecutableReference<?>> allMethodsReferences;
+
+    private final Resolver resolver;
 
     public ImpactAnalysis(final MavenLauncher launcher) {
         this(launcher, 10);
     }
 
-    public ImpactAnalysis(final MavenLauncher launcher, int maxChainLength) {
+    public ImpactAnalysis(final MavenLauncher launcher, final int maxChainLength) {
         this.maxChainLength = maxChainLength;
         this.launcher = launcher;
         this.testDirs = new HashSet<>();
@@ -109,7 +117,8 @@ public class ImpactAnalysis {
         } catch (final IOException e1) {
         }
 
-        for (CtType<?> type : launcher.getModel().getAllTypes()) {
+        final Collection<CtType<?>> allTypes = launcher.getModel().getAllTypes();
+        for (final CtType<?> type : allTypes) {
             Path relativized = null;
             try {
                 relativized = rootFolder.relativize(type.getPosition().getFile().toPath().toRealPath());
@@ -140,7 +149,7 @@ public class ImpactAnalysis {
                 this.srcThings.add(type);
 
             if (relativized != null) {
-                CtType<?> aaaaa = typesIndexByFileName.put(relativized.toString(), type);
+                final CtType<?> aaaaa = typesIndexByFileName.put(relativized.toString(), type);
                 try {
                     if (aaaaa != null && type.getPosition().getFile().toString()
                             .equals(aaaaa.getPosition().getFile().toString())) {
@@ -156,10 +165,12 @@ public class ImpactAnalysis {
         }
 
         this.allMethodsReferences = new ArrayList<>();
-        for (CtMethod<?> m : launcher.getModel().getElements(new TypeFilter<>(CtMethod.class))) {
+        for (final CtMethod<?> m : launcher.getModel().getElements(new TypeFilter<>(CtMethod.class))) {
             this.allMethodsReferences.add(m.getReference());
         }
         this.launcher.getModel().getRootPackage().accept(new ImpactPreprossessor(allMethodsReferences));
+
+        this.resolver = new Resolver(allTypes);
     }
 
     public static Boolean isTest(final CtExecutable<?> y) {
@@ -215,27 +226,28 @@ public class ImpactAnalysis {
 
     }
 
-    public <T> List<ImpactChain> getImpactedTests2(Collection<ImmutablePair<Object, Position>> col) throws IOException {
+    public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col)
+            throws IOException {
         return getImpactedTests2(col, true);
     }
 
-    public <T> List<ImpactChain> getImpactedTests2(Collection<ImmutablePair<Object, Position>> col, boolean onTests)
-            throws IOException {
+    public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col,
+            final boolean onTests) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        for (ImmutablePair<Object, Position> x : col) {
-            Position pos = x.right;
-            Object impactingThing = x.left;
-            FilterEvolvedElements filter = new FilterEvolvedElements(
+        for (final ImmutablePair<Object, Position> x : col) {
+            final Position pos = x.right;
+            final Object impactingThing = x.left;
+            final FilterEvolvedElements filter = new FilterEvolvedElements(
                     Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                     pos.getStart(), pos.getEnd());
-            CtType<?> tmp0 = this.typesIndexByFileName.get(pos.getFilePath());
+            final CtType<?> tmp0 = this.typesIndexByFileName.get(pos.getFilePath());
             if (tmp0 == null) {
                 continue;
             }
-            List<CtElement> tmp = tmp0.getElements(filter);
+            final List<CtElement> tmp = tmp0.getElements(filter);
             // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
-            for (CtElement element : tmp) {
-                ImpactElement tmp2 = new ImpactElement(element);
+            for (final CtElement element : tmp) {
+                final ImpactElement tmp2 = new ImpactElement(element);
                 tmp2.addEvolution(impactingThing, pos);
                 chains.add(new ImpactChain(tmp2));
             }
@@ -244,16 +256,16 @@ public class ImpactAnalysis {
         return exploreAST2(chains, onTests);
     }
 
-    public <T> List<ImpactChain> getImpactedTests(Collection<Evolution<T>> x) throws IOException {
+    public <T> List<ImpactChain> getImpactedTests(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        for (Evolution<T> impactingThing : x) {
-            for (Position pos : impactingThing.getPreEvolutionPositions()) {
-                List<CtElement> tmp = this.launcher.getModel()
+        for (final Evolution<T> impactingThing : x) {
+            for (final Position pos : impactingThing.getPreEvolutionPositions()) {
+                final List<CtElement> tmp = this.launcher.getModel()
                         .getElements(new FilterEvolvedElements(
                                 Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                                 pos.getStart(), pos.getEnd()));
-                for (CtElement element : tmp) {
-                    ImpactElement tmp2 = new ImpactElement(element);
+                for (final CtElement element : tmp) {
+                    final ImpactElement tmp2 = new ImpactElement(element);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
                     chains.add(new ImpactChain(tmp2));
                 }
@@ -263,16 +275,16 @@ public class ImpactAnalysis {
         return exploreAST2(chains, true);
     }
 
-    public <T> List<ImpactChain> getImpactedTestsPostEvolution(Collection<Evolution<T>> x) throws IOException {
+    public <T> List<ImpactChain> getImpactedTestsPostEvolution(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        for (Evolution<T> impactingThing : x) {
-            for (Position pos : impactingThing.getPostEvolutionPositions()) {
-                List<CtElement> tmp = this.launcher.getModel()
+        for (final Evolution<T> impactingThing : x) {
+            for (final Position pos : impactingThing.getPostEvolutionPositions()) {
+                final List<CtElement> tmp = this.launcher.getModel()
                         .getElements(new FilterEvolvedElements(
                                 Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                                 pos.getStart(), pos.getEnd()));
-                for (CtElement element : tmp) {
-                    ImpactElement tmp2 = new ImpactElement(element);
+                for (final CtElement element : tmp) {
+                    final ImpactElement tmp2 = new ImpactElement(element);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
                     chains.add(new ImpactChain(tmp2));
                 }
@@ -291,17 +303,17 @@ public class ImpactAnalysis {
 
     private class FilterEvolvedElements implements Filter<CtElement> {
 
-        private String file;
-        private int start;
-        private int end;
+        private final String file;
+        private final int start;
+        private final int end;
 
-        public FilterEvolvedElements(Position position) {
+        public FilterEvolvedElements(final Position position) {
             this.file = position.getFilePath();
             this.start = position.getStart();
             this.end = position.getEnd();
         }
 
-        public FilterEvolvedElements(String file, int start, int end) {
+        public FilterEvolvedElements(final String file, final int start, final int end) {
             this.file = file;
             this.start = start;
             this.end = end;
@@ -321,7 +333,7 @@ public class ImpactAnalysis {
                 String c;
                 try {
                     c = p.getFile().getCanonicalPath();
-                } catch (Exception e) {
+                } catch (final Exception e) {
                     e.printStackTrace();
                     return false;
 
@@ -353,6 +365,34 @@ public class ImpactAnalysis {
         }
     }
 
+    static final String METADATA_KEY_REVERSE = "reversed-" + UUID.randomUUID();
+    static final String METADATA_KEY_EXTENDS = "extends-" + UUID.randomUUID();
+    static final String METADATA_KEY_IMPLEMENTS = "implements-" + UUID.randomUUID();
+    static final String METADATA_KEY_INVS_COUNT = "invsCount-" + UUID.randomUUID();
+    static final String METADATA_KEY_REVERSE_COUNT = "accessCount-" + UUID.randomUUID();
+
+    final static class Uses<T> {
+        private final Set<T> values = new HashSet<>();
+        private final Class<T> type;
+
+        Uses(final Class<T> class1) {
+            this.type = class1;
+        }
+
+        public Class<T> getType() {
+            return type;
+        }
+
+        public void add(final T value) {
+            assert type.isInstance(value);
+            values.add(value);
+        }
+
+        public Set<T> getValues() {
+            return Collections.unmodifiableSet(values);
+        }
+    }
+
     /**
      * Explorer
      */
@@ -360,14 +400,14 @@ public class ImpactAnalysis {
         public final List<ImpactChain> finishedChains = new ArrayList<ImpactChain>();
         public final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>();
         public final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<ImpactChain, Integer>();
-        private boolean getOnTests;
+        private final boolean getOnTests;
 
-        public Explorer(Set<ImpactChain> impactChains, boolean getOnTests) {
+        public Explorer(final Set<ImpactChain> impactChains, final boolean getOnTests) {
             processedChains.addAll(impactChains);
             this.getOnTests = getOnTests;
         }
 
-        public void finishChain(ImpactChain chain) {
+        public void finishChain(final ImpactChain chain) {
             if (getOnTests) {
                 logger.info("Ignoring redundant impact path");
             } else {
@@ -375,18 +415,18 @@ public class ImpactAnalysis {
             }
         }
 
-        public <T> void followAbstractInvocations(ImpactChain current, CtExecutable<T> current_elem, Integer weight)
-                throws IOException {
-            Object z = current_elem.getMetadata("call");
+        public <T> void followAbstractInvocations(final ImpactChain current, final CtExecutable<T> current_elem,
+                final Integer weight) throws IOException {
+            final Object z = current_elem.getMetadata("call");
             if (z instanceof Collection) {
-                Collection<?> a = (Collection<?>) z;
-                for (Object b : a) {
+                final Collection<?> a = (Collection<?>) z;
+                for (final Object b : a) {
                     if (b instanceof CtAbstractInvocation) {
-                        CtAbstractInvocation<?> invocation = (CtAbstractInvocation<?>) b;
+                        final CtAbstractInvocation<?> invocation = (CtAbstractInvocation<?>) b;
                         if (!invocation.getPosition().isValidPosition())
                             continue;
-                        ImpactChain extended = current.extend(new ImpactElement(invocation), "call");
-                        Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+                        final ImpactChain extended = current.extend(new ImpactElement(invocation), "call");
+                        final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
                         if (fromAlreadyMarched2 == null || weight - 10 > fromAlreadyMarched2) {
                             processedChains.add(extended);
                             alreadyMarchedChains.put(extended, weight - 10);
@@ -404,17 +444,17 @@ public class ImpactAnalysis {
             }
         }
 
-        public <T> void followParameters(ImpactChain current, CtAbstractInvocation<T> current_elem, Integer weight)
-                throws IOException {
-            List<CtExpression<?>> arguments = ((CtAbstractInvocation<?>) current_elem).getArguments();
+        public <T> void followParameters(final ImpactChain current, final CtAbstractInvocation<T> current_elem,
+                final Integer weight) throws IOException {
+            final List<CtExpression<?>> arguments = ((CtAbstractInvocation<?>) current_elem).getArguments();
             int current_argument_index = 0;
-            for (CtExpression<?> argument : arguments) {
+            for (final CtExpression<?> argument : arguments) {
                 if (!argument.getPosition().isValidPosition())
                     continue;
-                Map<String, Object> more = new HashMap<>();
+                final Map<String, Object> more = new HashMap<>();
                 more.put("index", current_argument_index);
-                ImpactChain extended = current.extend(new ImpactElement(argument), "argument", more);
-                Integer existing_weight = alreadyMarchedChains.get(extended);
+                final ImpactChain extended = current.extend(new ImpactElement(argument), "argument", more);
+                final Integer existing_weight = alreadyMarchedChains.get(extended);
                 if (existing_weight == null || weight - 1 > existing_weight) {
                     processedChains.add(extended);
                     alreadyMarchedChains.put(extended, weight - 1);
@@ -425,8 +465,8 @@ public class ImpactAnalysis {
             }
         }
 
-        public <T> void expand2(ImpactChain current, CtAbstractInvocation<T> current_elem, Integer weight)
-                throws IOException {
+        public <T> void expand2(final ImpactChain current, final CtAbstractInvocation<T> current_elem,
+                final Integer weight) throws IOException {
             try {
                 // expand to assignment
                 final CtAssignment<?, ?> parentAssignment = current_elem.getParent(CtAssignment.class);
@@ -446,8 +486,8 @@ public class ImpactAnalysis {
                     // expand to variable
                     final CtVariable<?> parentVariable = current_elem.getParent(CtLocalVariable.class);
                     if (parentVariable != null) {
-                        final ImpactChain extended = current.extend(new ImpactElement(parentVariable),
-                                "expand to variable");
+                        final ImpactChain extended0 = current.extend(new ImpactElement(parentVariable), "assignment");
+                        final ImpactChain extended = extended0.extend(new ImpactElement(parentVariable), "write");
                         alreadyMarchedChains.put(extended, weight - 1);
                         processedChains.add(extended);
                     } else {
@@ -461,12 +501,13 @@ public class ImpactAnalysis {
                         }
                     }
                 }
-            } catch (ParentNotInitializedException e) {
+            } catch (final ParentNotInitializedException e) {
                 logger.info("ParentNotInitializedException");
             }
         }
 
-        public void expand(ImpactChain current, CtElement current_elem, Integer weight) throws IOException {
+        public void expand(final ImpactChain current, final CtElement current_elem, final Integer weight)
+                throws IOException {
             try {
 
                 // // expand to variable
@@ -496,7 +537,7 @@ public class ImpactAnalysis {
                     processedChains.add(extended);
                 }
                 // }
-            } catch (ParentNotInitializedException e) {
+            } catch (final ParentNotInitializedException e) {
                 logger.info("ParentNotInitializedException");
             }
             // TODO expand to type (class for example as a modifier of a class or an extends
@@ -505,17 +546,25 @@ public class ImpactAnalysis {
             // TODO how should @override or abstract be handled (virtual call)
         }
 
-        public void followTypes(ImpactChain current, CtElement current_elem, Integer weight) throws IOException {
-            Object z = current_elem.getMetadata("type");
+        public void followTypes(final ImpactChain current, final CtType current_elem, final Integer weight)
+                throws IOException {
+            final CtTypeReference<?> superClassRef = current_elem.getSuperclass();
+            final Set<CtTypeReference<?>> supoerIntsRefs = current_elem.getSuperInterfaces();
+        }
+
+        public void followTypes(final ImpactChain current, final CtTypedElement current_elem, final Integer weight)
+                throws IOException {
+            final CtTypeReference<?> typeRef = current_elem.getType();
+            final Object z = current_elem.getMetadata("type");
             if (z == null) {
             } else if (z instanceof Collection) {
-                Collection<?> a = (Collection<?>) z;
-                for (Object b : a) {
-                    CtType<?> type = (CtType<?>) b;
+                final Collection<?> a = (Collection<?>) z;
+                for (final Object b : a) {
+                    final CtType<?> type = (CtType<?>) b;
                     if (!type.getPosition().isValidPosition())
                         continue;
-                    ImpactChain extended = current.extend(new ImpactElement(type), "type");
-                    Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+                    final ImpactChain extended = current.extend(new ImpactElement(type), "type");
+                    final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
                     if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
                         processedChains.add(extended);
                         alreadyMarchedChains.put(extended, weight - 1);
@@ -528,15 +577,15 @@ public class ImpactAnalysis {
             }
         }
 
-        public <T> void followReads(ImpactChain current, CtExpression<T> current_elem, Integer weight)
+        public <T> void followReads(final ImpactChain current, final CtExpression<T> current_elem, final Integer weight)
                 throws IOException {
-            CtQuery q = launcher.getFactory().createQuery();
-            Set<CtVariableRead> s = new HashSet(q.setInput(current_elem).list(CtVariableRead.class));
-            for (CtVariableRead x : s) {
+            final CtQuery q = launcher.getFactory().createQuery();
+            final Set<CtVariableRead> s = new HashSet(q.setInput(current_elem).list(CtVariableRead.class));
+            for (final CtVariableRead x : s) {
                 if (!x.getPosition().isValidPosition())
                     continue;
-                ImpactChain extended = current.extend(new ImpactElement(x), "read");
-                Integer existing_weight = alreadyMarchedChains.get(extended);
+                final ImpactChain extended = current.extend(new ImpactElement(x), "read");
+                final Integer existing_weight = alreadyMarchedChains.get(extended);
                 if (existing_weight == null || weight - 1 > existing_weight) {
                     processedChains.add(extended);
                     alreadyMarchedChains.put(extended, weight - 1);
@@ -546,17 +595,18 @@ public class ImpactAnalysis {
             }
         }
 
-        public void followWrite(ImpactChain current, CtStatement current_elem, Integer weight) throws IOException {
+        public void followWrite(final ImpactChain current, final CtStatement current_elem, final Integer weight)
+                throws IOException {
             if (current_elem instanceof CtLocalVariable) {
-                CtLocalVariable<?> tmp = (CtLocalVariable<?>) current_elem;
-                CtExecutable<?> enclosingScope = tmp.getParent(CtExecutable.class);
-                CtQuery q = launcher.getFactory().createQuery();
-                Set<CtVariableWrite> s = new HashSet(q.setInput(enclosingScope).list(CtVariableWrite.class));
-                for (CtVariableWrite x : s) {
+                final CtLocalVariable<?> tmp = (CtLocalVariable<?>) current_elem;
+                final CtExecutable<?> enclosingScope = tmp.getParent(CtExecutable.class);
+                final CtQuery q = launcher.getFactory().createQuery();
+                final Set<CtVariableWrite> s = new HashSet(q.setInput(enclosingScope).list(CtVariableWrite.class));
+                for (final CtVariableWrite x : s) {
                     if (!x.getPosition().isValidPosition())
                         continue;
-                    ImpactChain extended = current.extend(new ImpactElement(x), "write");
-                    Integer existing_weight = alreadyMarchedChains.get(extended);
+                    final ImpactChain extended = current.extend(new ImpactElement(x), "write");
+                    final Integer existing_weight = alreadyMarchedChains.get(extended);
                     if (existing_weight == null || weight - 1 > existing_weight) {
                         processedChains.add(extended);
                         alreadyMarchedChains.put(extended, weight - 1);
@@ -570,15 +620,30 @@ public class ImpactAnalysis {
 
             }
         }
+
+        public void expand3(final ImpactChain current, final CtElement current_elem, final Integer weight)
+                throws IOException {
+            try {
+                final CtExecutable<?> parentExecutable = current_elem.getParent(CtExecutable.class);
+                if (parentExecutable != null) {
+                    final ImpactChain extended = current.extend(new ImpactElement(parentExecutable), "return");
+                    alreadyMarchedChains.put(extended, weight - 1);
+                    processedChains.add(extended);
+                }
+            } catch (final ParentNotInitializedException e) {
+                logger.info("ParentNotInitializedException");
+            }
+        }
     }
 
-    private List<ImpactChain> exploreAST2(final Set<ImpactChain> impactChains, boolean getOnTests) throws IOException {
-        Explorer explorer = new Explorer(impactChains, getOnTests);
+    private List<ImpactChain> exploreAST2(final Set<ImpactChain> impactChains, final boolean getOnTests)
+            throws IOException {
+        final Explorer explorer = new Explorer(impactChains, getOnTests);
 
         while (!explorer.processedChains.isEmpty()) {
-            ImpactChain current = explorer.processedChains.poll();
-            CtElement current_elem = current.getLast().getContent();
-            Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
+            final ImpactChain current = explorer.processedChains.poll();
+            final CtElement current_elem = current.getLast().getContent();
+            final Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
             if (current_elem instanceof CtExecutable) {
                 if (isTest((CtExecutable<?>) current_elem)) {
                     explorer.finishChain(current);
@@ -588,18 +653,29 @@ public class ImpactAnalysis {
                         continue;
                     }
                     explorer.followAbstractInvocations(current, (CtExecutable<?>) current_elem, weight);
-                    explorer.followTypes(current, current_elem, weight);
+                    explorer.followTypes(current, (CtExecutable<?>) current_elem, weight);
                 }
             } else if (current_elem instanceof CtAbstractInvocation) {
                 explorer.followParameters(current, (CtAbstractInvocation<?>) current_elem, weight); // parameters deps
-                explorer.expand2(current, (CtAbstractInvocation<?>) current_elem, weight); // returns
-                explorer.followTypes(current, current_elem, weight); // current type
+                explorer.expand2(current, (CtAbstractInvocation<?>) current_elem, weight); // returned value
+                // explorer.followTypes(current, (CtAbstractInvocation<?>)current_elem, weight);
+                // // current type
             } else if (current_elem instanceof CtExpression) {
                 explorer.followReads(current, (CtExpression<?>) current_elem, weight);
                 explorer.followTypes(current, (CtExpression<?>) current_elem, weight); // current type
-            } else if (current_elem instanceof CtStatement) {
-                explorer.followWrite(current, (CtStatement) current_elem, weight);
-                explorer.followTypes(current, current_elem, weight); // current type
+                // } else if (current_elem instanceof CtStatement) {
+            } else if (current_elem instanceof CtLocalVariable) {
+                explorer.followWrite(current, (CtLocalVariable) current_elem, weight);
+                explorer.followTypes(current, (CtLocalVariable) current_elem, weight); // current type
+            } else if (current_elem instanceof CtAssignment) {
+                explorer.followWrite(current, (CtAssignment) current_elem, weight);
+                explorer.followTypes(current, (CtAssignment) current_elem, weight); // current type
+            } else if (current_elem instanceof CtReturn) {
+                explorer.followTypes(current, ((CtReturn) current_elem).getReturnedExpression(), weight); // current
+                                                                                                          // type
+                explorer.followReads(current, (CtExpression<?>) ((CtReturn) current_elem).getReturnedExpression(),
+                        weight);
+                explorer.expand3(current, current_elem, weight); // returns
 
                 // if (weight <= 0) {
                 // explorer.finishChain(current);
@@ -631,125 +707,12 @@ public class ImpactAnalysis {
                     explorer.finishChain(current);
                     continue;
                 }
-                explorer.followTypes(current, current_elem, weight);
+                explorer.followTypes(current, (CtType) current_elem, weight);
             } else {
                 explorer.expand(current, current_elem, weight);
             }
         }
         return explorer.finishedChains;
-    }
-
-    private List<ImpactChain> exploreAST(final Set<ImpactChain> impactChains) throws IOException {
-        final List<ImpactChain> finishedChains = new ArrayList<ImpactChain>();
-
-        final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>(impactChains);
-
-        // loops are not considered thanks to this set
-        // ImpactChains are compared using the root and the head element, thus no chains
-        // are lost
-        // Only the cheapest (here in length) chain should be kept for a given root
-        // cause and an impact
-        // element
-        final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<ImpactChain, Integer>();
-
-        while (!processedChains.isEmpty()) {
-            ImpactChain current = processedChains.poll();
-            CtElement current_elem = current.getLast().getContent();
-            if (current_elem instanceof CtInvocation) {
-                final CtInvocation<?> invocationElement = (CtInvocation<?>) current_elem;
-                current_elem = invocationElement.getParent(CtExecutable.class); // AAA should be materialized by a
-                                                                                // relation
-                current = current.extend(new ImpactElement(current_elem), "expand to executable");
-            } else if (current_elem instanceof CtConstructorCall) {
-                final CtConstructorCall<?> constructionElement = (CtConstructorCall<?>) current_elem;
-                current_elem = constructionElement.getParent(CtExecutable.class); // AAA should be materialized by a
-                                                                                  // relation
-                current = current.extend(new ImpactElement(current_elem), "expand to executable");
-            }
-            if (current_elem instanceof CtExecutable) {
-                // final CtExecutable<?> executableElement = (CtExecutable<?>) elem;
-                Integer fromAlreadyMarched = alreadyMarchedChains.get(current);
-                if (fromAlreadyMarched != null) {
-                    if (current.size() < fromAlreadyMarched) {
-                        Logger.getLogger("ImpactLogger").info("Dropping a redundant impact path");
-                        continue;
-                    } else {
-                        if (current.size() > maxChainLength) {
-                            Logger.getLogger("ImpactLogger").info("Dropping a long impact");
-                            continue;
-                        }
-                    }
-                }
-                alreadyMarchedChains.put(current, current.size());
-                Object z = current_elem.getMetadata("call");
-                // System.out.println("@@@@@ " + y.getLast().getSignature() + " " + s.size());
-                if (z instanceof Collection) {
-                    Collection<?> a = (Collection<?>) z;
-                    for (Object b : a) {
-                        // System.out.println("aaa");
-                        if (b instanceof CtInvocation) {
-                            // System.out.println("bbb");
-                            CtInvocation<?> c = (CtInvocation<?>) b;
-                            if (!c.getPosition().isValidPosition())
-                                continue;
-                            // System.out.println(c);
-                            CtExecutable<?> p = c.getParent(CtExecutable.class); // AAA should be materialized by a
-                                                                                 // relation
-                            if (p != null) {
-                                // System.out.println("ccc");
-                                ImpactChain p2 = current.extend(new ImpactElement(c), "call");
-                                Integer fromAlreadyMarched2 = alreadyMarchedChains.get(p2);
-                                if (isTest(p)) {
-                                    // System.out.println(p2.size());
-                                    // if (fromAlreadyMarched2 == null || current.size() < fromAlreadyMarched2) {
-                                    finishedChains.add(p2);
-                                }
-                                // } else {
-                                if (fromAlreadyMarched2 == null || current.size() > fromAlreadyMarched2) {
-                                    alreadyMarchedChains.put(p2, p2.size());
-                                    processedChains.add(p2);
-                                } else {
-                                    Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
-                                    // System.out.println("???????????");
-                                    // System.out.println(fromAlreadyMarched2);
-                                    // System.out.println(current.size());
-                                }
-                                // }
-                            }
-                        } else if (b instanceof CtConstructorCall) {
-                            CtConstructorCall<?> c = (CtConstructorCall<?>) b;
-                            if (!c.getPosition().isValidPosition())
-                                continue;
-                            CtElement p = c.getParent(CtConstructor.class); // AAA should be materialized by a relation
-                            if (p != null) {
-                                ImpactChain p2 = current.extend(new ImpactElement(c), "call");
-                                Integer fromAlreadyMarched2 = alreadyMarchedChains.get(p2);
-                                if (fromAlreadyMarched2 == null || current.size() > fromAlreadyMarched2) {
-                                    alreadyMarchedChains.put(p2, p2.size());
-                                    processedChains.add(p2);
-                                } else {
-                                    Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
-                                }
-                            }
-                        } else {
-                            Logger.getLogger("ImpactLogger")
-                                    .info("call MD content not handled " + z.getClass().getName());
-                        }
-                    }
-                } else if (z == null) {
-                    // Logger.getLogger("ImpactLogger").info("no Meta Data found");
-                } else {
-                    Logger.getLogger("ImpactLogger").info("call MD not handled " + z.getClass().getName());
-                }
-            } else if (current_elem == null) {
-                Logger.getLogger("ImpactLogger").warning("getLast returned null");
-            } else {
-                Logger.getLogger("ImpactLogger")
-                        .info("Impact content not handled " + current_elem.getClass().getName());
-            }
-
-        }
-        return finishedChains;
     }
 
     // private List<ImpactChain<? extends CtElement>> exploreASTDecl(final
