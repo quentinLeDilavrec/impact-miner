@@ -7,7 +7,6 @@ import java.nio.file.Paths;
 import java.security.cert.X509CertSelector;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -15,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
@@ -365,34 +363,6 @@ public class ImpactAnalysis {
         }
     }
 
-    static final String METADATA_KEY_REVERSE = "reversed-" + UUID.randomUUID();
-    static final String METADATA_KEY_EXTENDS = "extends-" + UUID.randomUUID();
-    static final String METADATA_KEY_IMPLEMENTS = "implements-" + UUID.randomUUID();
-    static final String METADATA_KEY_INVS_COUNT = "invsCount-" + UUID.randomUUID();
-    static final String METADATA_KEY_REVERSE_COUNT = "accessCount-" + UUID.randomUUID();
-
-    final static class Uses<T> {
-        private final Set<T> values = new HashSet<>();
-        private final Class<T> type;
-
-        Uses(final Class<T> class1) {
-            this.type = class1;
-        }
-
-        public Class<T> getType() {
-            return type;
-        }
-
-        public void add(final T value) {
-            assert type.isInstance(value);
-            values.add(value);
-        }
-
-        public Set<T> getValues() {
-            return Collections.unmodifiableSet(values);
-        }
-    }
-
     /**
      * Explorer
      */
@@ -417,30 +387,43 @@ public class ImpactAnalysis {
 
         public <T> void followAbstractInvocations(final ImpactChain current, final CtExecutable<T> current_elem,
                 final Integer weight) throws IOException {
-            final Object z = current_elem.getMetadata("call");
-            if (z instanceof Collection) {
-                final Collection<?> a = (Collection<?>) z;
-                for (final Object b : a) {
-                    if (b instanceof CtAbstractInvocation) {
-                        final CtAbstractInvocation<?> invocation = (CtAbstractInvocation<?>) b;
-                        if (!invocation.getPosition().isValidPosition())
-                            continue;
-                        final ImpactChain extended = current.extend(new ImpactElement(invocation), "call");
-                        final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
-                        if (fromAlreadyMarched2 == null || weight - 10 > fromAlreadyMarched2) {
-                            processedChains.add(extended);
-                            alreadyMarchedChains.put(extended, weight - 10);
-                        } else {
-                            Logger.getLogger("ImpactLogger").info("Ignoring redundant impact path");
-                        }
+            Set<CtAbstractInvocation<T>> z = resolver.references(current_elem);
+            for (final CtAbstractInvocation<T> invocation : z) {
+                if (!invocation.getPosition().isValidPosition())
+                    continue;
+                final ImpactChain extended = current.extend(new ImpactElement(invocation), "call");
+                final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+                if (fromAlreadyMarched2 == null || weight - 10 > fromAlreadyMarched2) {
+                    processedChains.add(extended);
+                    alreadyMarchedChains.put(extended, weight - 10);
+                } else {
+                    logger.info("Ignoring redundant impact path");
+                }
+            }
+            CtExecutable<?> override = resolver.override(current_elem);
+            if (override.getPosition().isValidPosition()) {
+                final ImpactChain extended = current.extend(new ImpactElement(override), "override");
+                final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+                if (fromAlreadyMarched2 == null || weight - 0 > fromAlreadyMarched2) {
+                    processedChains.add(extended);
+                    alreadyMarchedChains.put(extended, weight - 0);
+                } else {
+                    logger.info("Ignoring redundant impact path");
+                }
+            }
+            Set<CtExecutable<?>> overrides = resolver.overrides(current_elem);
+            for (CtExecutable<?> overri : overrides) {
+                if (overri.getPosition().isValidPosition()) {
+                    final ImpactChain extended = current.extend(new ImpactElement(overri), "overrided by");
+                    final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+                    if (fromAlreadyMarched2 == null || weight - 0 > fromAlreadyMarched2) {
+                        processedChains.add(extended);
+                        alreadyMarchedChains.put(extended, weight - 0);
                     } else {
-                        Logger.getLogger("ImpactLogger").info("call MD content not handled " + z.getClass().getName());
+                        logger.info("Ignoring redundant impact path");
                     }
                 }
-            } else if (z == null) {
-                // Logger.getLogger("ImpactLogger").info("no Meta Data found");
-            } else {
-                Logger.getLogger("ImpactLogger").info("call MD not handled " + z.getClass().getName());
+
             }
         }
 
@@ -546,36 +529,38 @@ public class ImpactAnalysis {
             // TODO how should @override or abstract be handled (virtual call)
         }
 
-        public void followTypes(final ImpactChain current, final CtType current_elem, final Integer weight)
+        public void followTypes(final ImpactChain current, final CtType<?> current_elem, final Integer weight)
                 throws IOException {
-            final CtTypeReference<?> superClassRef = current_elem.getSuperclass();
-            final Set<CtTypeReference<?>> supoerIntsRefs = current_elem.getSuperInterfaces();
+            Set<CtType<?>> a = resolver.referencesSuperClass(current_elem);
+            Set<CtType<?>> b = resolver.referencesSuperInterface(current_elem);
+            Set<CtTypedElement<?>> c = resolver.references(current_elem);
         }
 
-        public void followTypes(final ImpactChain current, final CtTypedElement current_elem, final Integer weight)
-                throws IOException {
-            final CtTypeReference<?> typeRef = current_elem.getType();
-            final Object z = current_elem.getMetadata("type");
-            if (z == null) {
-            } else if (z instanceof Collection) {
-                final Collection<?> a = (Collection<?>) z;
-                for (final Object b : a) {
-                    final CtType<?> type = (CtType<?>) b;
-                    if (!type.getPosition().isValidPosition())
-                        continue;
-                    final ImpactChain extended = current.extend(new ImpactElement(type), "type");
-                    final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
-                    if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
-                        processedChains.add(extended);
-                        alreadyMarchedChains.put(extended, weight - 1);
-                    } else {
-                        logger.info("Ignoring redundant impact path");
-                    }
-                }
-            } else {
-                logger.info("type not handled " + z.getClass().getName());
-            }
-        }
+        // public void followTypes(final ImpactChain current, final CtTypedElement
+        // current_elem, final Integer weight)
+        // throws IOException {
+        // final CtTypeReference<?> typeRef = current_elem.getType();
+        // final Object z = current_elem.getMetadata("type");
+        // if (z == null) {
+        // } else if (z instanceof Collection) {
+        // final Collection<?> a = (Collection<?>) z;
+        // for (final Object b : a) {
+        // final CtType<?> type = (CtType<?>) b;
+        // if (!type.getPosition().isValidPosition())
+        // continue;
+        // final ImpactChain extended = current.extend(new ImpactElement(type), "type");
+        // final Integer fromAlreadyMarched2 = alreadyMarchedChains.get(extended);
+        // if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
+        // processedChains.add(extended);
+        // alreadyMarchedChains.put(extended, weight - 1);
+        // } else {
+        // logger.info("Ignoring redundant impact path");
+        // }
+        // }
+        // } else {
+        // logger.info("type not handled " + z.getClass().getName());
+        // }
+        // }
 
         public <T> void followReads(final ImpactChain current, final CtExpression<T> current_elem, final Integer weight)
                 throws IOException {
@@ -644,16 +629,15 @@ public class ImpactAnalysis {
             final ImpactChain current = explorer.processedChains.poll();
             final CtElement current_elem = current.getLast().getContent();
             final Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
-            if (current_elem instanceof CtExecutable) {
+
+            if (weight <= 0) {
+                explorer.finishChain(current);
+            } else if (current_elem instanceof CtExecutable) {
                 if (isTest((CtExecutable<?>) current_elem)) {
                     explorer.finishChain(current);
                 } else {
-                    if (weight <= 0) {
-                        explorer.finishChain(current);
-                        continue;
-                    }
                     explorer.followAbstractInvocations(current, (CtExecutable<?>) current_elem, weight);
-                    explorer.followTypes(current, (CtExecutable<?>) current_elem, weight);
+                    // explorer.followTypes(current, (CtExecutable<?>) current_elem, weight);
                 }
             } else if (current_elem instanceof CtAbstractInvocation) {
                 explorer.followParameters(current, (CtAbstractInvocation<?>) current_elem, weight); // parameters deps
@@ -662,54 +646,28 @@ public class ImpactAnalysis {
                 // // current type
             } else if (current_elem instanceof CtExpression) {
                 explorer.followReads(current, (CtExpression<?>) current_elem, weight);
-                explorer.followTypes(current, (CtExpression<?>) current_elem, weight); // current type
+                // explorer.followTypes(current, (CtExpression<?>) current_elem, weight); //
+                // current type
                 // } else if (current_elem instanceof CtStatement) {
             } else if (current_elem instanceof CtLocalVariable) {
                 explorer.followWrite(current, (CtLocalVariable) current_elem, weight);
-                explorer.followTypes(current, (CtLocalVariable) current_elem, weight); // current type
+                // explorer.followTypes(current, (CtLocalVariable) current_elem, weight); //
+                // current type
             } else if (current_elem instanceof CtAssignment) {
                 explorer.followWrite(current, (CtAssignment) current_elem, weight);
-                explorer.followTypes(current, (CtAssignment) current_elem, weight); // current type
+                // explorer.followTypes(current, (CtAssignment) current_elem, weight); //
+                // current type
             } else if (current_elem instanceof CtReturn) {
-                explorer.followTypes(current, ((CtReturn) current_elem).getReturnedExpression(), weight); // current
-                                                                                                          // type
+                // explorer.followTypes(current, ((CtReturn)
+                // current_elem).getReturnedExpression(), weight); // current
+                // type
                 explorer.followReads(current, (CtExpression<?>) ((CtReturn) current_elem).getReturnedExpression(),
                         weight);
                 explorer.expand3(current, current_elem, weight); // returns
-
-                // if (weight <= 0) {
-                // explorer.finishChain(current);
-                // continue;
-                // }
-                // Object z = current_elem.getMetadata("variable");
-                // if (z == null) {
-                // } else if (z instanceof Collection) {
-                // Collection<?> a = (Collection<?>) z;
-                // for (Object b : a) {
-                // CtVariable<?> variable = (CtVariable<?>) b;
-                // if (!variable.getPosition().isValidPosition())
-                // continue;
-                // ImpactChain extended = current.extend(new ImpactElement(variable),
-                // "variable");
-                // Integer fromAlreadyMarched2 = explorer.alreadyMarchedChains.get(extended);
-                // if (fromAlreadyMarched2 == null || weight - 1 > fromAlreadyMarched2) {
-                // explorer.processedChains.add(extended);
-                // explorer.alreadyMarchedChains.put(extended, weight - 1);
-                // } else {
-                // logger.info("Ignoring redundant impact path");
-                // }
-                // }
-                // } else {
-                // logger.info("type not handled " + z.getClass().getName());
-                // }
             } else if (current_elem instanceof CtType) {
-                if (weight <= 0) {
-                    explorer.finishChain(current);
-                    continue;
-                }
                 explorer.followTypes(current, (CtType) current_elem, weight);
             } else {
-                explorer.expand(current, current_elem, weight);
+                explorer.expand(current, (CtType) current_elem, weight);
             }
         }
         return explorer.finishedChains;
