@@ -6,7 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
 /**
- * A limked list materializing the impact of an impacting element on an impacted
+ * A liked list materializing the impact of an impacting element on an impacted
  * element
  */
 public class ImpactChain implements JsonSerializable {

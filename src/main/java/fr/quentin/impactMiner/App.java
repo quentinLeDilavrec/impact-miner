@@ -15,6 +15,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.eclipse.jdt.core.compiler.CategorizedProblem;
+
 import spoon.MavenLauncher;
 import spoon.reflect.CtModel;
 import spoon.reflect.code.CtConstructorCall;
@@ -30,9 +33,42 @@ import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.visitor.CtScanner;
 import spoon.reflect.visitor.filter.TypeFilter;
+import spoon.support.compiler.jdt.JDTBasedSpoonCompiler;
 
 public class App {
+
     public static void main(String[] args) throws IOException {
+        MavenLauncher launcherAll = new MavenLauncher(
+                "/home/quentin/resources/Versions/graphhopper/graphhopper/7f80425b6a0af9bdfef12c8a873676e39e0a04a6/",
+                MavenLauncher.SOURCE_TYPE.ALL_SOURCE);
+        launcherAll.getEnvironment().setLevel("INFO");
+        launcherAll.getFactory().getEnvironment().setLevel("INFO");
+
+        try {
+            launcherAll.buildModel();
+        } catch (Exception e) {
+            for (CategorizedProblem pb : ((JDTBasedSpoonCompiler) launcherAll.getModelBuilder()).getProblems()) {
+                System.out.println(pb);
+            }
+        }
+
+        ImpactAnalysis l = new ImpactAnalysis(launcherAll, 100);
+
+        List<ImpactChain> imptst1;
+        try {
+            Set<ImmutablePair<Object, Position>> tmp = new HashSet<>();
+            tmp.add(new ImmutablePair<>(null,
+                    new Position("core/src/test/java/com/graphhopper/GraphHopperTest.java", 2130, 3720)));
+            tmp.add(new ImmutablePair<>(null,
+                    new Position("core/src/main/java/com/graphhopper/GraphHopper.java", 3688, 3846)));
+            imptst1 = l.getImpactedTests2(tmp, false);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1);
+    }
+
+    public static void main2(String[] args) throws IOException {
         // the second parameter can be APP_SOURCE / TEST_SOURCE / ALL_SOURCE
         // ../coming/pom.xml ../DummyProject/pom.xml ../gumtree-spoon-ast-diff/pom.xml
         // ../impact-miner/pom.xml ../server/pom.xml ../spoon/pom.xml

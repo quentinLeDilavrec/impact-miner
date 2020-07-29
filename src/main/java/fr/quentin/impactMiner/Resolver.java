@@ -93,34 +93,69 @@ public class Resolver {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private <T> void insertMetaData(final CtElement element, final String key, final Uses<T> defaultValue,
+            final T value) {
+        Object x = element.getMetadata(key);
+        if (x == null) {
+            x = defaultValue;
+            element.putMetadata(key, x);
+        }
+        if (x instanceof Uses) {
+            ((Uses<T>) x).add(value);
+        }
+    }
+
     private void initTypes(final Collection<CtType<?>> allTypes) {
         for (final CtType<?> type : allTypes) {
-            for (final CtTypeReference<?> typeRef : type.getUsedTypes(false)) {
-                insertMetaData(typeRef, Resolver.METADATA_KEY_REVERSE, type);
+            System.out.println(type.getSimpleName());
+            Set<CtTypeReference<?>> usedTypes;
+            try {
+                usedTypes = type.getUsedTypes(true);
+            } catch (Exception e) {
+                continue;
+            }
+            // TODO !!!! refs are recreated each time !!!!
+            for (final CtTypeReference<?> typeRef : usedTypes) {
+                CtType<?> typeDeclaration = typeRef.getTypeDeclaration();
+                if (typeDeclaration != null) {
+                    insertMetaData(typeDeclaration, Resolver.METADATA_KEY_REVERSE, makeUses(CtType.class), type);
+                }
             }
             final CtTypeReference<?> superClass = type.getSuperclass();
-            insertMetaData(superClass, Resolver.METADATA_KEY_SUPER_CLASSES, type);
+            if (superClass != null) {
+                CtType<?> typeDeclaration = superClass.getTypeDeclaration();
+                if (typeDeclaration != null) {
+                    insertMetaData(typeDeclaration, Resolver.METADATA_KEY_SUPER_CLASSES, makeUses(CtType.class), type);
+                }
+            }
             final Set<CtTypeReference<?>> superInterfaces = type.getSuperInterfaces();
             for (final CtTypeReference<?> superInterface : superInterfaces) {
-                insertMetaData(superInterface, Resolver.METADATA_KEY_SUPER_INTERFACES, type);
+                CtType<?> typeDeclaration = superInterface.getTypeDeclaration();
+                if (typeDeclaration != null) {
+                }
+                insertMetaData(typeDeclaration, Resolver.METADATA_KEY_SUPER_INTERFACES, makeUses(CtType.class), type);
             }
         }
     }
 
     private <T> void initTypesForTyped(final CtType<?> declaringType) {
-        final Object types = declaringType.getReference().getMetadata(Resolver.METADATA_KEY_REVERSE);
+        final Object types = declaringType.getMetadata(Resolver.METADATA_KEY_REVERSE);
         if (types != null && types instanceof Uses) {
-            assert ((Uses) types).getType().equals(CtType.class);
+            assert ((Uses<?>) types).getType().equals(CtType.class);
             @SuppressWarnings("unchecked")
             Set<CtType<Object>> tops = ((Uses<CtType<?>>) types).getValues().stream().map(x -> x.getTopLevelType())
                     .collect(Collectors.toSet());
             for (final CtType<?> type : tops) {
-                final Object exe_count = type.getReference().getMetadata(Resolver.METADATA_KEY_TYPED_COUNT);
+                final Object exe_count = type.getMetadata(Resolver.METADATA_KEY_TYPED_COUNT);
                 if (exe_count == null || !(exe_count instanceof Integer)) {
                     final List<CtTypedElement<?>> typeds = type.getElements(new TypeFilter<>(CtTypedElement.class));
-                    type.getReference().putMetadata(Resolver.METADATA_KEY_TYPED_COUNT, typeds.size());
+                    type.putMetadata(Resolver.METADATA_KEY_TYPED_COUNT, typeds.size());
                     for (final CtTypedElement<?> typed : typeds) {
-                        insertMetaData(typed.getType(), Resolver.METADATA_KEY_TYPED, typed);
+                        CtType<?> typeDeclaration = typed.getType().getTypeDeclaration();
+                        if (typeDeclaration != null) {
+                            insertMetaData(typeDeclaration, Resolver.METADATA_KEY_TYPED, typed);
+                        }
                     }
                 }
             }
@@ -129,20 +164,24 @@ public class Resolver {
     }
 
     private void initExecutables(final CtType<?> declaringType) {
-        final Object types = declaringType.getReference().getMetadata(Resolver.METADATA_KEY_REVERSE);
+        final Object types = declaringType.getMetadata(Resolver.METADATA_KEY_REVERSE);
         if (types != null && types instanceof Uses) {
-            assert ((Uses) types).getType().equals(CtType.class);
+            assert ((Uses<?>) types).getType().equals(CtType.class);
             @SuppressWarnings("unchecked")
             Set<CtType<Object>> tops = ((Uses<CtType<?>>) types).getValues().stream().map(x -> x.getTopLevelType())
                     .collect(Collectors.toSet());
             for (final CtType<?> type : tops) {
-                final Object exe_count = type.getReference().getMetadata(Resolver.METADATA_KEY_INVS_COUNT);
+                final Object exe_count = type.getMetadata(Resolver.METADATA_KEY_INVS_COUNT);
                 if (exe_count == null || !(exe_count instanceof Integer)) {
                     final List<CtAbstractInvocation<?>> invs = type
                             .getElements(new TypeFilter<>(CtAbstractInvocation.class));
-                    type.getReference().putMetadata(Resolver.METADATA_KEY_INVS_COUNT, invs.size());
+                    type.putMetadata(Resolver.METADATA_KEY_INVS_COUNT, invs.size());
                     for (final CtAbstractInvocation<?> inv : invs) {
-                        insertMetaData(inv.getExecutable(), Resolver.METADATA_KEY_REVERSE, inv);
+                        CtExecutable<?> declaration = inv.getExecutable().getDeclaration();
+                        if (declaration != null) {
+                            insertMetaData(declaration, Resolver.METADATA_KEY_REVERSE,
+                                    makeUses(CtAbstractInvocation.class), inv);
+                        }
                     }
                 }
             }
@@ -151,11 +190,11 @@ public class Resolver {
 
     @SuppressWarnings("unchecked")
     private void initOverrides(final CtType<?> declaringType) {
-        final Object classes = declaringType.getReference().getMetadata(Resolver.METADATA_KEY_SUPER_CLASSES);
+        final Object classes = declaringType.getMetadata(Resolver.METADATA_KEY_SUPER_CLASSES);
         if (classes != null && classes instanceof Uses) {
             initOverridesAux((Uses<CtType<?>>) classes);
         }
-        final Object interfaces = declaringType.getReference().getMetadata(Resolver.METADATA_KEY_SUPER_INTERFACES);
+        final Object interfaces = declaringType.getMetadata(Resolver.METADATA_KEY_SUPER_INTERFACES);
         if (interfaces != null && interfaces instanceof Uses) {
             initOverridesAux((Uses<CtType<?>>) interfaces);
         }
@@ -165,7 +204,7 @@ public class Resolver {
         assert types.getType().equals(CtType.class);
         Set<CtType<Object>> tops = types.getValues().stream().map(x -> x.getTopLevelType()).collect(Collectors.toSet());
         for (final CtType<?> type : tops) {
-            final Object override_count = type.getReference().getMetadata(Resolver.METADATA_KEY_OVERRIDES_COUNT);
+            final Object override_count = type.getMetadata(Resolver.METADATA_KEY_OVERRIDES_COUNT);
             if (override_count == null || !(override_count instanceof Integer)) {
                 final List<CtExecutable<?>> overriders = type.getElements(new Filter<CtExecutable<?>>() {
 
@@ -175,9 +214,10 @@ public class Resolver {
                     }
 
                 });
-                type.getReference().putMetadata(Resolver.METADATA_KEY_OVERRIDES_COUNT, overriders.size());
+                type.putMetadata(Resolver.METADATA_KEY_OVERRIDES_COUNT, overriders.size());
                 for (final CtExecutable<?> exe : overriders) {
-                    insertMetaData(exe.getReference().getOverridingExecutable(), Resolver.METADATA_KEY_OVERRIDES, exe);
+                    insertMetaData(exe.getReference().getOverridingExecutable().getDeclaration(),
+                            Resolver.METADATA_KEY_OVERRIDES, exe);
                 }
             }
         }
@@ -220,7 +260,9 @@ public class Resolver {
         } else {// CtTypeMember
             // own declaring types
             final CtType<?> parentType = declaringElement.getParent(CtType.class).getTopLevelType();
-            initVariables(parentType);
+            if (parentType != null) {
+                initVariables(parentType);
+            }
         }
     }
 
@@ -229,22 +271,25 @@ public class Resolver {
         if (access_count == null || !(access_count instanceof Integer)) {
             final List<CtVariableAccess<?>> access = parentType.getElements(new TypeFilter<>(CtVariableAccess.class));
             access.forEach(read -> {
-                insertMetaData(read.getVariable(), Resolver.METADATA_KEY_REVERSE, read);
+                CtVariable<?> declaration = read.getVariable().getDeclaration();
+                if (declaration != null) {
+                    insertMetaData(declaration, Resolver.METADATA_KEY_REVERSE, makeUses(CtVariableAccess.class), read);
+                }
             });
             insertMetaData(parentType, Resolver.METADATA_KEY_REVERSE_COUNT, access.size());
         }
     }
 
     @SuppressWarnings("unchecked")
-    public <T> Set<CtVariable<T>> references(final CtVariable<T> declaringElement) {
-        final CtVariableReference<T> ref = declaringElement.getReference();
-        final Object accs = ref.getMetadata(Resolver.METADATA_KEY_REVERSE);
+    public <T> Set<CtVariableAccess<T>> references(final CtVariable<T> declaringElement) {
+        final Object accs = declaringElement.getMetadata(Resolver.METADATA_KEY_REVERSE);
         if (accs == null) {
-            ref.putMetadata(METADATA_KEY_REVERSE, makeUses(CtTypedElement.class));
+            declaringElement.putMetadata(METADATA_KEY_REVERSE, makeUses(CtTypedElement.class));
             initVariables(declaringElement);
-            return ((Uses<CtVariable<T>>) ref.getMetadata(Resolver.METADATA_KEY_REVERSE)).getValues();
+            return ((Uses<CtVariableAccess<T>>) declaringElement.getMetadata(Resolver.METADATA_KEY_REVERSE))
+                    .getValues();
         } else if (accs instanceof Uses) {
-            return ((Uses<CtVariable<T>>) accs).getValues();
+            return ((Uses<CtVariableAccess<T>>) accs).getValues();
         }
         return null;
     }
@@ -257,12 +302,12 @@ public class Resolver {
 
     @SuppressWarnings("unchecked")
     public <T> Set<CtAbstractInvocation<T>> references(final CtExecutable<T> declaringElement) {
-        final CtExecutableReference<T> ref = declaringElement.getReference();
-        final Object invs = ref.getMetadata(Resolver.METADATA_KEY_REVERSE);
+        final Object invs = declaringElement.getMetadata(Resolver.METADATA_KEY_REVERSE);
         if (invs == null) {
-            ref.putMetadata(METADATA_KEY_REVERSE, makeUses(CtTypedElement.class));
-            initExecutables(ref.getParent(CtType.class));
-            return ((Uses<CtAbstractInvocation<T>>) ref.getMetadata(Resolver.METADATA_KEY_REVERSE)).getValues();
+            declaringElement.putMetadata(Resolver.METADATA_KEY_REVERSE, makeUses(CtTypedElement.class));
+            initExecutables(declaringElement.getParent(CtType.class));
+            return ((Uses<CtAbstractInvocation<T>>) declaringElement.getMetadata(Resolver.METADATA_KEY_REVERSE))
+                    .getValues();
         } else if (invs instanceof Uses) {
             return ((Uses<CtAbstractInvocation<T>>) invs).getValues();
         }
@@ -280,12 +325,11 @@ public class Resolver {
 
     @SuppressWarnings("unchecked")
     public <T> Set<CtExecutable<?>> overrides(final CtExecutable<T> declaringElement) {
-        final CtExecutableReference<T> ref = declaringElement.getReference();
-        final Object executables = ref.getMetadata(Resolver.METADATA_KEY_OVERRIDES);
+        final Object executables = declaringElement.getMetadata(Resolver.METADATA_KEY_OVERRIDES);
         if (executables == null) {
-            ref.putMetadata(METADATA_KEY_OVERRIDES, makeUses(CtTypedElement.class));
-            initOverrides(ref.getParent(CtType.class));
-            return ((Uses<CtExecutable<?>>) ref.getMetadata(Resolver.METADATA_KEY_OVERRIDES)).getValues();
+            declaringElement.putMetadata(METADATA_KEY_OVERRIDES, makeUses(CtTypedElement.class));
+            initOverrides(declaringElement.getParent(CtType.class));
+            return ((Uses<CtExecutable<?>>) declaringElement.getMetadata(Resolver.METADATA_KEY_OVERRIDES)).getValues();
         } else if (executables instanceof Uses) {
             return ((Uses<CtExecutable<?>>) executables).getValues();
         }
@@ -300,50 +344,53 @@ public class Resolver {
 
     @SuppressWarnings("unchecked")
     public <T> Set<CtType<?>> referencesAllUsagesPerType(final CtType<T> declaringElement) {
-        // declaringElement.getReference().getOverridingExecutable().putMetadata(key,
-        // val);
-        final Object types = declaringElement.getReference().getMetadata(Resolver.METADATA_KEY_REVERSE);
+        final Object types = declaringElement.getMetadata(Resolver.METADATA_KEY_REVERSE);
         assert types != null;
         if (types instanceof Uses) {
             return ((Uses<CtType<?>>) types).getValues();
         }
-        return null;
+        assert false : types;
+        return new HashSet<>();
     }
 
     @SuppressWarnings("unchecked")
     public <T> Set<CtTypedElement<?>> references(final CtType<T> declaringElement) {
         // declaringElement.getReference().getOverridingExecutable().putMetadata(key,
         // val);
-        CtTypeReference<T> ref = declaringElement.getReference();
-        final Object typed = ref.getMetadata(Resolver.METADATA_KEY_TYPED);
+        final Object typed = declaringElement.getMetadata(Resolver.METADATA_KEY_TYPED);
         if (typed == null) {
-            ref.putMetadata(METADATA_KEY_TYPED, makeUses(CtTypedElement.class));
-            initTypesForTyped(ref.getParent(CtType.class));
-            return ((Uses<CtTypedElement<?>>) ref.getMetadata(Resolver.METADATA_KEY_TYPED)).getValues();
+            declaringElement.putMetadata(METADATA_KEY_TYPED, makeUses(CtTypedElement.class));
+            initTypesForTyped(declaringElement.getParent(CtType.class));
+            return ((Uses<CtTypedElement<?>>) declaringElement.getMetadata(Resolver.METADATA_KEY_TYPED)).getValues();
         } else if (typed instanceof Uses) {
             return ((Uses<CtTypedElement<?>>) typed).getValues();
         }
-        return null;
+        assert false : typed;
+        return new HashSet<>();
     }
 
     @SuppressWarnings("unchecked")
     public <T> Set<CtType<?>> referencesSuperInterface(final CtType<T> declaringElement) {
         final Object types = declaringElement.getReference().getMetadata(Resolver.METADATA_KEY_SUPER_INTERFACES);
-        assert types != null;
-        if (types instanceof Uses) {
+        if (types == null) {
+            return new HashSet<>();
+        } else if (types instanceof Uses) {
             return ((Uses<CtType<?>>) types).getValues();
         }
-        return null;
+        assert false : types;
+        return new HashSet<>();
     }
 
     @SuppressWarnings("unchecked")
     public <T> Set<CtType<?>> referencesSuperClass(final CtType<T> declaringElement) {
-        final Object types = declaringElement.getReference().getMetadata(Resolver.METADATA_KEY_SUPER_CLASSES);
-        assert types != null;
-        if (types instanceof Uses) {
+        final Object types = declaringElement.getMetadata(Resolver.METADATA_KEY_SUPER_CLASSES);
+        if (types == null) {
+            return new HashSet<>();
+        } else if (types instanceof Uses) {
             return ((Uses<CtType<?>>) types).getValues();
         }
-        return null;
+        assert false : types;
+        return new HashSet<>();
     }
 
     public <T> CtType<?> referenceSuperClass(final CtType<T> referencingElement) {
