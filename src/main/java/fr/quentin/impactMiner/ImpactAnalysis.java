@@ -234,16 +234,49 @@ public class ImpactAnalysis {
             if (tmp0 == null) {
                 continue;
             }
-            final List<CtElement> tmp = tmp0.getElements(filter);
+            // final List<CtElement> tmp = tmp0.getElements(filter);
+            CtElement element = matchExact((CtElement) tmp0, pos.getStart(), pos.getEnd()-1);
+            assert element != null : element;
             // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
-            for (final CtElement element : tmp) {
-                final ImpactElement tmp2 = new ImpactElement(element);
-                tmp2.addEvolution(impactingThing, pos);
-                chains.add(new ImpactChain(tmp2));
-            }
+            // for (final CtElement element : tmp) {
+            final ImpactElement tmp2 = new ImpactElement(element);
+            tmp2.addEvolution(impactingThing, pos);
+            chains.add(new ImpactChain(tmp2));
+            // }
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
         return exploreAST2(chains, onTests);
+    }
+
+    public static CtElement matchExact(CtElement ele, int start, int end) {
+        SourcePosition position = ele.getPosition();
+        if (!position.isValidPosition()) {
+            return null;
+        }
+        int sourceStart = position.getSourceStart();
+        int sourceEnd = position.getSourceEnd();
+        int ds = start - sourceStart;
+        int de = sourceEnd - end;
+        if (ds == 0 && de == 0) {
+            return ele;
+        } else if (ds >= 0 && de >= 0) {
+            int i = 0;
+            for (CtElement child : ele.getDirectChildren()) {
+                CtElement r = matchExact(child, start, end);
+                if (r != null) {
+                    return r;
+                }
+                i++;
+            }
+            assert false : ele;
+            return null;
+        } else if (sourceEnd < start) {
+            return null;
+        } else if (end < sourceStart) {
+            return null;
+        } else {
+            return null;
+        }
     }
 
     public <T> List<ImpactChain> getImpactedTests(final Collection<Evolution<T>> x) throws IOException {
@@ -482,8 +515,9 @@ public class ImpactAnalysis {
                     assert false : parent;
                 }
             } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
-                    && (((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class") ||((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal())) {
-                        return;
+                    && (((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class")
+                            || ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal())) {
+                return;
             } else if (expr instanceof CtTypeAccess && expr.getParent(CtType.class)
                     .equals(((CtTypeAccess<?>) expr).getAccessedType().getTypeDeclaration())) {
                 CtTypeAccess<?> thisAccess = (CtTypeAccess<?>) expr;
@@ -671,7 +705,8 @@ public class ImpactAnalysis {
                 } else if (parent instanceof CtLoop && roleInParent.equals(CtRole.BODY)) {
                     return;
                 } else if (parent instanceof CtForEach && roleInParent.equals(CtRole.EXPRESSION)) {
-                    final ImpactChain extended = current.extend(new ImpactElement(((CtForEach)parent).getVariable()), "value");
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtForEach) parent).getVariable()),
+                            "value");
                     putIfNotRedundant(extended, weight - 1);
                     return;
                 } else if (parent instanceof CtThrow) { // TODO implement something to follow value in catch clause
@@ -679,10 +714,10 @@ public class ImpactAnalysis {
                 } else if (parent instanceof CtBinaryOperator) {
                 } else if (parent instanceof CtFieldRead) { // TODO confirm doing nothing
                 } else if (parent instanceof CtUnaryOperator) {
-                    if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.COMPL)) {
-                    } else if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.NEG)) {
-                    } else if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.NOT)) {
-                    } else if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.POS)) {
+                    if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.COMPL)) {
+                    } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.NEG)) {
+                    } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.NOT)) {
+                    } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.POS)) {
                     } else {
                         assert false : parent;
                     }
