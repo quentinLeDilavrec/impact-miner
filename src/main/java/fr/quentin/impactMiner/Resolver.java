@@ -31,15 +31,15 @@ public class Resolver {
         initTypes(allTypes);
     }
 
-    private static final String METADATA_KEY_REVERSE = "reversed";// + UUID.randomUUID();
-    private static final String METADATA_KEY_SUPER_CLASSES = "superClass";// + UUID.randomUUID();
-    private static final String METADATA_KEY_SUPER_INTERFACES = "superInterface";// + UUID.randomUUID();
-    private static final String METADATA_KEY_INVS_COUNT = "invsCount";// + UUID.randomUUID();
-    private static final String METADATA_KEY_REVERSE_COUNT = "accessCount";// + UUID.randomUUID();
-    private static final String METADATA_KEY_TYPED_COUNT = "typedCount";// + UUID.randomUUID();
-    private static final String METADATA_KEY_TYPED = "typed";// + UUID.randomUUID();
-    private static final String METADATA_KEY_OVERRIDES = "overrides";// + UUID.randomUUID();
-    private static final String METADATA_KEY_OVERRIDES_COUNT = "overridesCount";// + UUID.randomUUID();
+    private static final String METADATA_KEY_REVERSE = "depsAna.reversed";// + UUID.randomUUID();
+    private static final String METADATA_KEY_SUPER_CLASSES = "depsAna.superClass";// + UUID.randomUUID();
+    private static final String METADATA_KEY_SUPER_INTERFACES = "depsAna.superInterface";// + UUID.randomUUID();
+    private static final String METADATA_KEY_INVS_COUNT = "depsAna.invsCount";// + UUID.randomUUID();
+    private static final String METADATA_KEY_REVERSE_COUNT = "depsAna.accessCount";// + UUID.randomUUID();
+    private static final String METADATA_KEY_TYPED_COUNT = "depsAna.typedCount";// + UUID.randomUUID();
+    private static final String METADATA_KEY_TYPED = "depsAna.typed";// + UUID.randomUUID();
+    private static final String METADATA_KEY_OVERRIDES = "depsAna.overrides";// + UUID.randomUUID();
+    private static final String METADATA_KEY_OVERRIDES_COUNT = "depsAna.overridesCount";// + UUID.randomUUID();
 
     final static class Uses<T> {
         private final Set<T> values = new HashSet<>();
