@@ -105,15 +105,6 @@ public class ImpactAnalysis {
         return false;
     }
 
-    // public void printTestEntries() {
-    // for (final Map.Entry<CtType<?>, Set<CtMethod<?>>> x :
-    // this.testEntries.entrySet()) {
-    // System.out.println(x.getKey().getSimpleName());
-    // for (final CtMethod<?> y : x.getValue()) {
-    // System.out.println("\t" + y.getSignature());
-    // }
-    // }
-    // }
 
     public Set<SourcePosition> getImpactedInvocations(final String string, final int i, final int j) {
         return null;
@@ -122,23 +113,6 @@ public class ImpactAnalysis {
     public Set<SourcePosition> getImpactingDeclarations(final String string, final int i, final int j) {
         return null;
     }
-
-    // public <R> List<ImpactChain<CtElement,R>> getImpactedTests(final
-    // SourcePosition position) {
-    // File file = position.getFile();
-    // if (file == null || !position.isValidPosition()) {
-    // return null;
-    // }
-    // try {
-    // return getImpactedTests(position.getFile().getCanonicalPath(),
-    // position.getSourceStart(),
-    // position.getSourceEnd());
-    // } catch (IOException e) {
-    // // TODO Auto-generated catch block
-    // e.printStackTrace();
-    // return null;
-    // }
-    // }
 
     public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col)
             throws IOException {
@@ -178,7 +152,7 @@ public class ImpactAnalysis {
                 position = new Position(pos.getFile().getAbsolutePath(), pos.getSourceStart(), pos.getSourceEnd());
             } else if (x.right instanceof Position) {
                 position = (Position) x.right;
-                final CtType<?> tmp0 = this.augmented.typesIndexByFileName.get(position.getFilePath());
+                final CtType<?> tmp0 = this.augmented.topsByFileName.get(position.getFilePath());
                 if (tmp0 == null) {
                     continue;
                 }
@@ -200,7 +174,7 @@ public class ImpactAnalysis {
         for (final ImmutablePair<Object, Position> x : col) {
             final Object impactingThing = x.left;
             final Position pos = x.right;
-            final CtType<?> tmp0 = this.augmented.typesIndexByFileName.get(pos.getFilePath());
+            final CtType<?> tmp0 = this.augmented.topsByFileName.get(pos.getFilePath());
             if (tmp0 == null) {
                 continue;
             }
@@ -248,58 +222,6 @@ public class ImpactAnalysis {
         }
         Logger.getLogger("getImpactedTestsPostEvolution").info(Integer.toString(chains.size()));
         return exploreAST2(chains, true);
-    }
-
-    public void needsSimple(CtType<?> ele, Set<CtType<?>> acc) {
-        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
-        for (CtTypeReference<?> ref : l) {
-            CtType<?> decl = ref.getTypeDeclaration();
-            if (decl == null) {
-
-            } else if (!acc.contains(ele)) {
-                acc.add(decl);
-                if (decl.isShadow()) {
-
-                } else {
-                    needsSimple(ele, acc);
-                }
-            }
-        }
-    }
-
-    static private String META_KEY_NEEDS = "need.needs";
-
-    // TODO get stricter needs by matching used types for any referenceable element
-    // the problem with such strict filtering is the later habilities to instanciate
-    // such tight ast
-
-    public Set<CtType> needs(CtElement ele) {
-        return needsDyn(ele.getParent(new TypeFilter<CtType<?>>(CtType.class)).getTopLevelType());
-    }
-
-    public Set<CtType> needsDyn(CtType<?> ele) {
-        Uses<CtType> md = (Uses<CtType>) ele.getMetadata(META_KEY_NEEDS);
-        assert md instanceof Uses;
-        if (md != null) {
-            return md.getValues();
-        } else {
-            md = new Uses<CtType>(CtType.class);
-            ele.putMetadata(META_KEY_NEEDS, md);
-        }
-        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
-        for (CtTypeReference<?> ref : l) {
-            CtType<?> decl = ref.getTypeDeclaration();
-            if (decl == null) {
-
-            } else if (!md.contains(ele)) {
-                if (decl.isShadow()) {
-                    md.add(decl);
-                } else {
-                    md.addAll(needsDyn(ele));
-                }
-            }
-        }
-        return md.getValues();
     }
 
     private class FilterEvolvedElements implements Filter<CtElement> {

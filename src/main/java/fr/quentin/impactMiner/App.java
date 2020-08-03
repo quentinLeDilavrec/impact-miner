@@ -67,6 +67,7 @@ public class App {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        System.out.println(imptst1);
         fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1);
     }
 

@@ -13,10 +13,12 @@ import java.util.Set;
 
 import spoon.MavenLauncher;
 import spoon.SpoonAPI;
+import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.filter.TypeFilter;
 
 public class AugmentedAST<T extends SpoonAPI> {
@@ -27,13 +29,13 @@ public class AugmentedAST<T extends SpoonAPI> {
     final Set<CtType<?>> testThings = new HashSet<>();
     final Set<CtType<?>> srcThings = new HashSet<>();
     final List<CtExecutableReference<?>> allExecutablesReferences;
-    final Map<String, CtType<?>> typesIndexByFileName = new HashMap<>();
+    final Map<String, CtType<?>> topsByFileName = new HashMap<>();
 
     public Map<String, CtType<?>> getTypesIndexByFileName() {
-        return Collections.unmodifiableMap(typesIndexByFileName);
+        return Collections.unmodifiableMap(topsByFileName);
     }
     public CtType<?> getTop(String path) {
-        return typesIndexByFileName.get(path);
+        return topsByFileName.get(path);
     }
 
     public AugmentedAST(final T launcher) {
@@ -76,9 +78,11 @@ public class AugmentedAST<T extends SpoonAPI> {
             if (isNotTest)
                 this.srcThings.add(type);
 
-            if (type.isTopLevel()) {
-                final CtType<?> tmp = this.typesIndexByFileName.put(relativized.toString(), type);
-                assert tmp == null : tmp;
+            if (type.isTopLevel() && !type.isShadow()) {
+                final CtType<?> tmp = this.topsByFileName.put(relativized.toString(), type);
+                if (tmp != null) {
+                    throw new RuntimeException("sould be null "+ tmp);
+                };
             }
         }
 
@@ -86,6 +90,60 @@ public class AugmentedAST<T extends SpoonAPI> {
         for (final CtExecutable<?> e : this.launcher.getModel().getElements(new TypeFilter<>(CtExecutable.class))) {
             this.allExecutablesReferences.add(e.getReference());
         }
+    }
+
+
+
+    public void needsSimple(CtType<?> ele, Set<CtType<?>> acc) {
+        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
+        for (CtTypeReference<?> ref : l) {
+            CtType<?> decl = ref.getTypeDeclaration();
+            if (decl == null) {
+
+            } else if (!acc.contains(ele)) {
+                acc.add(decl);
+                if (decl.isShadow()) {
+
+                } else {
+                    needsSimple(ele, acc);
+                }
+            }
+        }
+    }
+
+    static private String META_KEY_NEEDS = "need.needs";
+
+    // TODO get stricter needs by matching used types for any referenceable element
+    // the problem with such strict filtering is the later habilities to instanciate
+    // such tight ast
+
+    public Set<CtType> needs(CtElement ele) {
+        return needsDyn(ele.getParent(new TypeFilter<CtType<?>>(CtType.class)).getTopLevelType());
+    }
+
+    public Set<CtType> needsDyn(CtType<?> ele) {
+        Uses<CtType> md = (Uses<CtType>) ele.getMetadata(META_KEY_NEEDS);
+        assert md instanceof Uses;
+        if (md != null) {
+            return md.getValues();
+        } else {
+            md = new Uses<CtType>(CtType.class);
+            ele.putMetadata(META_KEY_NEEDS, md);
+        }
+        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
+        for (CtTypeReference<?> ref : l) {
+            CtType<?> decl = ref.getTypeDeclaration();
+            if (decl == null) {
+
+            } else if (!md.contains(ele)) {
+                if (decl.isShadow()) {
+                    md.add(decl);
+                } else {
+                    md.addAll(needsDyn(ele));
+                }
+            }
+        }
+        return md.getValues();
     }
 
 }
