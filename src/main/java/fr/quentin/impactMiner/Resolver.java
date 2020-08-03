@@ -1,7 +1,6 @@
 package fr.quentin.impactMiner;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,28 +39,6 @@ public class Resolver {
     private static final String METADATA_KEY_TYPED = "typed";// + UUID.randomUUID();
     private static final String METADATA_KEY_OVERRIDES = "overrides";// + UUID.randomUUID();
     private static final String METADATA_KEY_OVERRIDES_COUNT = "overridesCount";// + UUID.randomUUID();
-
-    final static class Uses<T> {
-        private final Set<T> values = new HashSet<>();
-        private final Class<T> type;
-
-        Uses(final Class<T> class1) {
-            this.type = class1;
-        }
-
-        public Class<T> getType() {
-            return type;
-        }
-
-        public void add(final T value) {
-            assert type.isInstance(value);
-            values.add(value);
-        }
-
-        public Set<T> getValues() {
-            return Collections.unmodifiableSet(values);
-        }
-    }
 
     private static <T> Uses<T> makeUses(Class<T> clazz) {
         return new Uses<T>(clazz);

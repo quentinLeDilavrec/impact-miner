@@ -65,11 +65,14 @@ import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtField;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtType;
+import spoon.reflect.declaration.CtTypeMember;
 import spoon.reflect.declaration.CtTypedElement;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.ParentNotInitializedException;
 import spoon.reflect.path.CtRole;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtTypeReference;
+import spoon.reflect.visitor.CtVisitor;
 import spoon.reflect.visitor.Filter;
 import spoon.reflect.visitor.chain.CtQuery;
 import spoon.reflect.visitor.filter.TypeFilter;
@@ -113,6 +116,7 @@ public class ImpactAnalysis {
         }
 
         final Collection<CtType<?>> allTypes = launcher.getModel().getAllTypes();
+        launcher.getModel().getRootPackage().getTypes().iterator().next().toStringWithImports();
         for (final CtType<?> type : allTypes) {
             Path relativized = null;
             try {
@@ -221,26 +225,51 @@ public class ImpactAnalysis {
         return getImpactedTests2(col, true);
     }
 
+    public <T> List<ImpactChain> getImpactedTests3(final Collection<ImmutablePair<Object, CtElement>> col,
+            final boolean onTests) throws IOException {
+        final Set<ImpactChain> chains = new HashSet<>();
+        for (final ImmutablePair<Object, CtElement> x : col) {
+            final CtElement ele = x.right;
+            final Object impactingThing = x.left;
+            // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
+            final SourcePosition pos = ele.getPosition();
+            assert pos.isValidPosition() : pos;
+            final ImpactElement tmp2 = new ImpactElement(ele);
+            tmp2.addEvolution(impactingThing,
+                    new Position(pos.getFile().getAbsolutePath(), pos.getSourceStart(), pos.getSourceEnd()));
+            chains.add(new ImpactChain(tmp2));
+        }
+        Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
+        return exploreAST2(chains, onTests);
+    }
+
     public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col,
             final boolean onTests) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final ImmutablePair<Object, Position> x : col) {
             final Position pos = x.right;
             final Object impactingThing = x.left;
-            final FilterEvolvedElements filter = new FilterEvolvedElements(
-                    Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
-                    pos.getStart(), pos.getEnd());
+            // final FilterEvolvedElements filter = new FilterEvolvedElements(
+            // Paths.get(this.rootFolder.toAbsolutePath().toString(),
+            // pos.getFilePath()).toString(),
+            // pos.getStart(), pos.getEnd());
             final CtType<?> tmp0 = this.typesIndexByFileName.get(pos.getFilePath());
-            if (tmp0 == null) {
-                continue;
-            }
-            final List<CtElement> tmp = tmp0.getElements(filter);
-            // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
-            for (final CtElement element : tmp) {
-                final ImpactElement tmp2 = new ImpactElement(element);
-                tmp2.addEvolution(impactingThing, pos);
-                chains.add(new ImpactChain(tmp2));
-            }
+            assert tmp0 != null;
+
+            CtElement tmp = exactMatch(tmp0, pos.getStart(), pos.getEnd());
+            final ImpactElement tmp2 = new ImpactElement(tmp);
+            tmp2.addEvolution(impactingThing, pos);
+            chains.add(new ImpactChain(tmp2));
+            // if (tmp0 == null) {
+            // continue;
+            // }
+            // final List<CtElement> tmp = tmp0.getElements(filter);
+            // // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
+            // for (final CtElement element : tmp) {
+            // final ImpactElement tmp2 = new ImpactElement(element);
+            // tmp2.addEvolution(impactingThing, pos);
+            // chains.add(new ImpactChain(tmp2));
+            // }
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
         return exploreAST2(chains, onTests);
@@ -290,6 +319,61 @@ public class ImpactAnalysis {
     // .getElements(new FilterEvolvedElements(file, start, end));
     // return exploreAST(evolvedElements);
     // }
+
+    private static CtElement exactMatch(CtElement ast, int start, int end) {
+        return null;
+    }
+
+    public void needsSimple(CtType<?> ele, Set<CtType<?>> acc) {
+        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
+        for (CtTypeReference<?> ref : l) {
+            CtType<?> decl = ref.getTypeDeclaration();
+            if (decl == null) {
+
+            } else if (!acc.contains(ele)) {
+                acc.add(decl);
+                if (decl.isShadow()) {
+
+                } else {
+                    needsSimple(ele, acc);
+                }
+            }
+        }
+    }
+
+    static private String META_KEY_NEEDS = "need.needs";
+
+    // TODO get stricter needs by matching used types for any referenceable element
+    // the problem with such strict filtering is the later habilities to instanciate such tight ast
+
+    public Set<CtType> needs(CtElement ele) {
+        return needsDyn(ele.getParent(new TypeFilter<CtType<?>>(CtType.class)).getTopLevelType());
+    }
+
+    public Set<CtType> needsDyn(CtType<?> ele) {
+        Uses<CtType> md = (Uses<CtType>) ele.getMetadata(META_KEY_NEEDS);
+        assert md instanceof Uses;
+        if (md != null) {
+            return md.getValues();
+        } else {
+            md = new Uses<CtType>(CtType.class);
+            ele.putMetadata(META_KEY_NEEDS, md);
+        }
+        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
+        for (CtTypeReference<?> ref : l) {
+            CtType<?> decl = ref.getTypeDeclaration();
+            if (decl == null) {
+
+            } else if (!md.contains(ele)) {
+                if (decl.isShadow()) {
+                    md.add(decl);
+                } else {
+                    md.addAll(needsDyn(ele));
+                }
+            }
+        }
+        return md.getValues();
+    }
 
     private class FilterEvolvedElements implements Filter<CtElement> {
 
@@ -482,8 +566,9 @@ public class ImpactAnalysis {
                     assert false : parent;
                 }
             } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
-                    && (((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class") ||((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal())) {
-                        return;
+                    && (((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class")
+                            || ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal())) {
+                return;
             } else if (expr instanceof CtTypeAccess && expr.getParent(CtType.class)
                     .equals(((CtTypeAccess<?>) expr).getAccessedType().getTypeDeclaration())) {
                 CtTypeAccess<?> thisAccess = (CtTypeAccess<?>) expr;
@@ -671,7 +756,8 @@ public class ImpactAnalysis {
                 } else if (parent instanceof CtLoop && roleInParent.equals(CtRole.BODY)) {
                     return;
                 } else if (parent instanceof CtForEach && roleInParent.equals(CtRole.EXPRESSION)) {
-                    final ImpactChain extended = current.extend(new ImpactElement(((CtForEach)parent).getVariable()), "value");
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtForEach) parent).getVariable()),
+                            "value");
                     putIfNotRedundant(extended, weight - 1);
                     return;
                 } else if (parent instanceof CtThrow) { // TODO implement something to follow value in catch clause
@@ -679,10 +765,10 @@ public class ImpactAnalysis {
                 } else if (parent instanceof CtBinaryOperator) {
                 } else if (parent instanceof CtFieldRead) { // TODO confirm doing nothing
                 } else if (parent instanceof CtUnaryOperator) {
-                    if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.COMPL)) {
-                    } else if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.NEG)) {
-                    } else if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.NOT)) {
-                    } else if (((CtUnaryOperator<?>)parent).getKind().equals(UnaryOperatorKind.POS)) {
+                    if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.COMPL)) {
+                    } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.NEG)) {
+                    } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.NOT)) {
+                    } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.POS)) {
                     } else {
                         assert false : parent;
                     }
