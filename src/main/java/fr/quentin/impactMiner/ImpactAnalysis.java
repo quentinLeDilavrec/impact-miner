@@ -1,8 +1,6 @@
 package fr.quentin.impactMiner;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,10 +15,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.eclipse.jdt.internal.codeassist.CompletionUnitStructureRequestor;
 
 import spoon.MavenLauncher;
-import spoon.SpoonAPI;
 import spoon.reflect.code.CtAbstractInvocation;
 import spoon.reflect.code.CtAnnotationFieldAccess;
 import spoon.reflect.code.CtArrayAccess;
@@ -65,108 +61,36 @@ import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtField;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtType;
+import spoon.reflect.declaration.CtTypeMember;
 import spoon.reflect.declaration.CtTypedElement;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.ParentNotInitializedException;
 import spoon.reflect.path.CtRole;
-import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtTypeReference;
+import spoon.reflect.visitor.CtVisitor;
 import spoon.reflect.visitor.Filter;
 import spoon.reflect.visitor.chain.CtQuery;
 import spoon.reflect.visitor.filter.TypeFilter;
 
 public class ImpactAnalysis {
-
+    // preEval -> deps -> validation
     static private Logger logger = Logger.getLogger(ImpactAnalysis.class.getName());
 
     private final Integer maxChainLength;
-    private final SpoonAPI launcher;
-    // private Map<>
-    private final Set<Path> testDirs;
-    private final Set<Path> srcDirs;
-    private final Set<CtType<?>> testThings = new HashSet<>();
-    private final Set<CtType<?>> srcThings = new HashSet<>();
-    private Path rootFolder;
-    private final Map<String, CtType<?>> typesIndexByFileName = new HashMap<>();
-    // private Map<CtType<?>, Set<CtMethod<?>>> testEntries;
-    private final List<CtExecutableReference<?>> allMethodsReferences;
 
     private final Resolver resolver;
 
-    public ImpactAnalysis(final MavenLauncher launcher) {
-        this(launcher, 10);
+    public final AugmentedAST<MavenLauncher> augmented;
+
+    public ImpactAnalysis(final AugmentedAST<MavenLauncher> _ast) {
+        this(_ast, 10);
     }
 
-    public ImpactAnalysis(final MavenLauncher launcher, final int maxChainLength) {
+    public ImpactAnalysis(final AugmentedAST<MavenLauncher> augmentedAst, final int maxChainLength) {
+        this.augmented = augmentedAst;
         this.maxChainLength = maxChainLength;
-        this.launcher = launcher;
-        this.testDirs = new HashSet<>();
-        this.srcDirs = new HashSet<>();
-        try {
-            this.rootFolder = launcher.getPomFile().getFileSystemParent().toPath().toRealPath();
-            for (final File file : launcher.getPomFile().getTestDirectories()) {
-                this.testDirs.add(rootFolder.relativize(file.toPath().toRealPath().toAbsolutePath()));
-            }
-            for (final File file : launcher.getPomFile().getSourceDirectories()) {
-                this.srcDirs.add(rootFolder.relativize(file.toPath().toRealPath().toAbsolutePath()));
-            }
-        } catch (final IOException e1) {
-        }
 
-        final Collection<CtType<?>> allTypes = launcher.getModel().getAllTypes();
-        for (final CtType<?> type : allTypes) {
-            Path relativized = null;
-            try {
-                relativized = rootFolder.relativize(type.getPosition().getFile().toPath().toRealPath());
-            } catch (final IOException e) {
-            }
-            boolean isTest = false;
-            if (relativized != null) {
-                for (final Path file : testDirs) {
-                    if (relativized.startsWith(file)) {
-                        isTest = true;
-                        break;
-                    }
-                }
-            }
-            if (isTest)
-                this.testThings.add(type);
-
-            boolean isNotTest = false;
-            if (relativized != null) {
-                for (final Path file : srcDirs) {
-                    if (relativized.startsWith(file)) {
-                        isNotTest = true;
-                        break;
-                    }
-                }
-            }
-            if (isNotTest)
-                this.srcThings.add(type);
-
-            if (relativized != null) {
-                final CtType<?> aaaaa = typesIndexByFileName.put(relativized.toString(), type);
-                try {
-                    if (aaaaa != null && type.getPosition().getFile().toString()
-                            .equals(aaaaa.getPosition().getFile().toString())) {
-                        if (aaaaa.getPosition().getSourceStart() <= type.getPosition().getSourceStart()
-                                && aaaaa.getPosition().getSourceEnd() >= type.getPosition().getSourceEnd()) {
-                            typesIndexByFileName.put(relativized.toString(), aaaaa);
-                        }
-                    }
-                } finally {
-
-                }
-            }
-        }
-
-        this.allMethodsReferences = new ArrayList<>();
-        for (final CtMethod<?> m : launcher.getModel().getElements(new TypeFilter<>(CtMethod.class))) {
-            this.allMethodsReferences.add(m.getReference());
-        }
-        // this.launcher.getModel().getRootPackage().accept(new
-        // ImpactPreprossessor(allMethodsReferences));
-
-        this.resolver = new Resolver(allTypes);
+        this.resolver = new Resolver(augmented.launcher.getModel().getAllTypes());
     }
 
     public static Boolean isTest(final CtExecutable<?> y) {
@@ -221,72 +145,82 @@ public class ImpactAnalysis {
         return getImpactedTests2(col, true);
     }
 
-    public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col,
+    public <T> List<ImpactChain> getImpactedTests3(final Collection<ImmutablePair<Object, CtElement>> col,
             final boolean onTests) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        for (final ImmutablePair<Object, Position> x : col) {
-            final Position pos = x.right;
+        for (final ImmutablePair<Object, CtElement> x : col) {
+            final CtElement ele = x.right;
             final Object impactingThing = x.left;
-            final FilterEvolvedElements filter = new FilterEvolvedElements(
-                    Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
-                    pos.getStart(), pos.getEnd());
-            final CtType<?> tmp0 = this.typesIndexByFileName.get(pos.getFilePath());
-            if (tmp0 == null) {
-                continue;
-            }
-            // final List<CtElement> tmp = tmp0.getElements(filter);
-            CtElement element = matchExact((CtElement) tmp0, pos.getStart(), pos.getEnd()-1);
-            assert element != null : element;
             // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
-            // for (final CtElement element : tmp) {
-            final ImpactElement tmp2 = new ImpactElement(element);
-            tmp2.addEvolution(impactingThing, pos);
+            final SourcePosition pos = ele.getPosition();
+            assert pos.isValidPosition() : pos;
+            final ImpactElement tmp2 = new ImpactElement(ele);
+            tmp2.addEvolution(impactingThing,
+                    new Position(pos.getFile().getAbsolutePath(), pos.getSourceStart(), pos.getSourceEnd()));
             chains.add(new ImpactChain(tmp2));
-            // }
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
         return exploreAST2(chains, onTests);
     }
 
-    public static CtElement matchExact(CtElement ele, int start, int end) {
-        SourcePosition position = ele.getPosition();
-        if (!position.isValidPosition()) {
-            return null;
-        }
-        int sourceStart = position.getSourceStart();
-        int sourceEnd = position.getSourceEnd();
-        int ds = start - sourceStart;
-        int de = sourceEnd - end;
-        if (ds == 0 && de == 0) {
-            return ele;
-        } else if (ds >= 0 && de >= 0) {
-            int i = 0;
-            for (CtElement child : ele.getDirectChildren()) {
-                CtElement r = matchExact(child, start, end);
-                if (r != null) {
-                    return r;
+    public <T> List<ImpactChain> getImpactedTests4(final Collection<ImmutablePair<Object, Object>> col,
+            final boolean onTests) throws IOException {
+        final Set<ImpactChain> chains = new HashSet<>();
+        for (final ImmutablePair<Object, Object> x : col) {
+            final Object impactingThing = x.left;
+            CtElement element = null;
+            Position position = null;
+            if (x.right instanceof CtElement) {
+                element = (CtElement) x.right;
+                // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
+                final SourcePosition pos = element.getPosition();
+                assert pos.isValidPosition() : pos;
+                position = new Position(pos.getFile().getAbsolutePath(), pos.getSourceStart(), pos.getSourceEnd());
+            } else if (x.right instanceof Position) {
+                position = (Position) x.right;
+                final CtType<?> tmp0 = this.augmented.typesIndexByFileName.get(position.getFilePath());
+                if (tmp0 == null) {
+                    continue;
                 }
-                i++;
+                element = Utils.matchExact((CtElement) tmp0, position.getStart(), position.getEnd() - 1);
             }
-            assert false : ele;
-            return null;
-        } else if (sourceEnd < start) {
-            return null;
-        } else if (end < sourceStart) {
-            return null;
-        } else {
-            return null;
+            assert element != null : position;
+            assert position != null : element;
+            final ImpactElement tmp2 = new ImpactElement(element);
+            tmp2.addEvolution(impactingThing, position);
+            chains.add(new ImpactChain(tmp2));
         }
+        Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
+        return exploreAST2(chains, onTests);
+    }
+
+    public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col,
+            final boolean onTests) throws IOException {
+        final Set<ImpactChain> chains = new HashSet<>();
+        for (final ImmutablePair<Object, Position> x : col) {
+            final Object impactingThing = x.left;
+            final Position pos = x.right;
+            final CtType<?> tmp0 = this.augmented.typesIndexByFileName.get(pos.getFilePath());
+            if (tmp0 == null) {
+                continue;
+            }
+            CtElement element = Utils.matchExact((CtElement) tmp0, pos.getStart(), pos.getEnd() - 1);
+            assert element != null : element;
+            final ImpactElement tmp2 = new ImpactElement(element);
+            tmp2.addEvolution(impactingThing, pos);
+            chains.add(new ImpactChain(tmp2));
+        }
+        Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
+        return exploreAST2(chains, onTests);
     }
 
     public <T> List<ImpactChain> getImpactedTests(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPreEvolutionPositions()) {
-                final List<CtElement> tmp = this.launcher.getModel()
-                        .getElements(new FilterEvolvedElements(
-                                Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
-                                pos.getStart(), pos.getEnd()));
+                final List<CtElement> tmp = this.augmented.launcher.getModel().getElements(new FilterEvolvedElements(
+                        Paths.get(this.augmented.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
+                        pos.getStart(), pos.getEnd()));
                 for (final CtElement element : tmp) {
                     final ImpactElement tmp2 = new ImpactElement(element);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
@@ -302,10 +236,9 @@ public class ImpactAnalysis {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPostEvolutionPositions()) {
-                final List<CtElement> tmp = this.launcher.getModel()
-                        .getElements(new FilterEvolvedElements(
-                                Paths.get(this.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
-                                pos.getStart(), pos.getEnd()));
+                final List<CtElement> tmp = this.augmented.launcher.getModel().getElements(new FilterEvolvedElements(
+                        Paths.get(this.augmented.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
+                        pos.getStart(), pos.getEnd()));
                 for (final CtElement element : tmp) {
                     final ImpactElement tmp2 = new ImpactElement(element);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
@@ -317,12 +250,57 @@ public class ImpactAnalysis {
         return exploreAST2(chains, true);
     }
 
-    // public <R> List<ImpactChain<CtElement,R>> getImpactedTests(String file, int
-    // start, int end, R evolution) {
-    // final List<CtElement> evolvedElements = this.launcher.getModel()
-    // .getElements(new FilterEvolvedElements(file, start, end));
-    // return exploreAST(evolvedElements);
-    // }
+    public void needsSimple(CtType<?> ele, Set<CtType<?>> acc) {
+        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
+        for (CtTypeReference<?> ref : l) {
+            CtType<?> decl = ref.getTypeDeclaration();
+            if (decl == null) {
+
+            } else if (!acc.contains(ele)) {
+                acc.add(decl);
+                if (decl.isShadow()) {
+
+                } else {
+                    needsSimple(ele, acc);
+                }
+            }
+        }
+    }
+
+    static private String META_KEY_NEEDS = "need.needs";
+
+    // TODO get stricter needs by matching used types for any referenceable element
+    // the problem with such strict filtering is the later habilities to instanciate
+    // such tight ast
+
+    public Set<CtType> needs(CtElement ele) {
+        return needsDyn(ele.getParent(new TypeFilter<CtType<?>>(CtType.class)).getTopLevelType());
+    }
+
+    public Set<CtType> needsDyn(CtType<?> ele) {
+        Uses<CtType> md = (Uses<CtType>) ele.getMetadata(META_KEY_NEEDS);
+        assert md instanceof Uses;
+        if (md != null) {
+            return md.getValues();
+        } else {
+            md = new Uses<CtType>(CtType.class);
+            ele.putMetadata(META_KEY_NEEDS, md);
+        }
+        Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
+        for (CtTypeReference<?> ref : l) {
+            CtType<?> decl = ref.getTypeDeclaration();
+            if (decl == null) {
+
+            } else if (!md.contains(ele)) {
+                if (decl.isShadow()) {
+                    md.add(decl);
+                } else {
+                    md.addAll(needsDyn(ele));
+                }
+            }
+        }
+        return md.getValues();
+    }
 
     private class FilterEvolvedElements implements Filter<CtElement> {
 
@@ -732,58 +710,6 @@ public class ImpactAnalysis {
                 }
             } catch (final ParentNotInitializedException e) {
                 logger.log(Level.WARNING, "parentNotInitializedException", e);
-            }
-        }
-
-        public <T> void followComputedValue(final ImpactChain current, final CtAbstractInvocation<T> current_elem,
-                final Integer weight) throws IOException {
-            try {
-                // expand to assignment
-                CtAssignment<?, ?> parentAssignment = null;
-                CtStatement statement = current_elem.getParent(CtStatement.class);
-                if (statement == null) {
-                } else if (statement instanceof CtAssignment) {
-                    parentAssignment = (CtAssignment<?, ?>) statement;
-                    CtExpression<?> assignedExpr = null;
-                    if (parentAssignment != null) {
-                        assignedExpr = parentAssignment.getAssigned();
-                    }
-                    if (assignedExpr != null && assignedExpr instanceof CtVariableWrite) {
-                        final ImpactChain extended = current.extend(new ImpactElement(assignedExpr), "write");
-                        putIfNotRedundant(extended, weight - 1);
-                    } else if (assignedExpr != null && assignedExpr instanceof CtArrayWrite) {
-                        final ImpactChain extended = current.extend(new ImpactElement(assignedExpr), "write");
-                        putIfNotRedundant(extended, weight - 1);
-                    } else {
-                        // expand to variable
-                        final CtVariable<?> parentVariable = current_elem.getParent(CtLocalVariable.class);
-                        if (parentVariable != null) {
-                            final ImpactChain extended = current.extend(new ImpactElement(parentVariable), "write");
-                            putIfNotRedundant(extended, weight - 1);
-                        } else {
-                            expandToExecutableOrType(current, current_elem, weight);
-                        }
-                    }
-                } else if (statement instanceof CtAbstractInvocation) {
-                    CtAbstractInvocation<?> parentInvo = (CtAbstractInvocation<?>) statement;
-                    int current_argument_index = 0;
-                    for (CtExpression<?> arg : parentInvo.getArguments()) {
-                        if (current_elem.hasParent(arg)) {
-                            final Map<String, Object> more = new HashMap<>();
-                            more.put("index", current_argument_index);
-                            final ImpactChain extended = current.extend(new ImpactElement(parentInvo), "argument",
-                                    more);
-                            putIfNotRedundant(extended, weight - 1);
-                            break;
-                        }
-                        current_argument_index++;
-                    }
-                } else {
-                    expandToExecutableOrType(current, current_elem, weight);
-                }
-
-            } catch (final ParentNotInitializedException e) {
-                logger.info("ParentNotInitializedException");
             }
         }
 

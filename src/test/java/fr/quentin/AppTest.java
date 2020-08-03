@@ -11,6 +11,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.junit.Test;
 
+import fr.quentin.impactMiner.AugmentedAST;
 import fr.quentin.impactMiner.ImpactAnalysis;
 import fr.quentin.impactMiner.ImpactChain;
 import fr.quentin.impactMiner.Position;
@@ -45,7 +46,8 @@ public class AppTest {
             }
         }
 
-        ImpactAnalysis l = new ImpactAnalysis(launcherAll, 1);
+        AugmentedAST<MavenLauncher> aug = new AugmentedAST<>(launcherAll);
+        ImpactAnalysis l = new ImpactAnalysis(aug, 10);
 
         List<ImpactChain> imptst1;
         try {

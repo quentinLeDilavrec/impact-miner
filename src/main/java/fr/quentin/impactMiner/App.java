@@ -51,16 +51,18 @@ public class App {
                 System.out.println(pb);
             }
         }
-
-        ImpactAnalysis l = new ImpactAnalysis(launcherAll, 100);
+        AugmentedAST<MavenLauncher> aug = new AugmentedAST<>(launcherAll);
+        ImpactAnalysis l = new ImpactAnalysis(aug, 100);
 
         List<ImpactChain> imptst1;
         try {
             Set<ImmutablePair<Object, Position>> tmp = new HashSet<>();
             tmp.add(new ImmutablePair<>(null,
-                    new Position("core/src/test/java/com/graphhopper/GraphHopperTest.java", 2130, 3720)));
+                    new Position("core/src/test/java/com/graphhopper/GraphHopperTest.java", 2232, 2249)));
             tmp.add(new ImmutablePair<>(null,
-                    new Position("core/src/main/java/com/graphhopper/GraphHopper.java", 3688, 3846)));
+                    new Position("core/src/main/java/com/graphhopper/GraphHopper.java", 3594, 3626)));
+            tmp.add(new ImmutablePair<>(null,
+                    new Position("core/src/main/java/com/graphhopper/GraphHopper.java", 3682, 3693)));
             imptst1 = l.getImpactedTests2(tmp, false);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -102,7 +104,8 @@ public class App {
 
         // Set<CtExecutableReference<?>> computedMethods = new HashSet<>();
 
-        ImpactAnalysis l = new ImpactAnalysis(launcher);
+        AugmentedAST<MavenLauncher> aug = new AugmentedAST<>(launcher);
+        ImpactAnalysis l = new ImpactAnalysis(aug);
 
         // launcher.getModel().getElements(MavenLauncher.)
 
