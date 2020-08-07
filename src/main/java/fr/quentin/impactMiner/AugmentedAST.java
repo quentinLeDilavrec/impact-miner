@@ -13,6 +13,7 @@ import java.util.Set;
 
 import spoon.MavenLauncher;
 import spoon.SpoonAPI;
+import spoon.SpoonException;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
@@ -89,7 +90,11 @@ public class AugmentedAST<T extends SpoonAPI> {
 
         this.allExecutablesReferences = new ArrayList<>();
         for (final CtExecutable<?> e : this.launcher.getModel().getElements(new TypeFilter<>(CtExecutable.class))) {
-            this.allExecutablesReferences.add(e.getReference());
+            try {
+                this.allExecutablesReferences.add(e.getReference());
+            } catch (SpoonException exc) {
+                exc.printStackTrace();
+            }
         }
     }
 
