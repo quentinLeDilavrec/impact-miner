@@ -24,7 +24,7 @@ public class Utils {
                 }
                 i++;
             }
-            assert false : ele;
+            System.out.println("did not find "+start+" "+end+" in"+ ele);
             return null;
         } else if (sourceEnd < start) {
             return null;
