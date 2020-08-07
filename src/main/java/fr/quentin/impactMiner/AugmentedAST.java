@@ -81,7 +81,7 @@ public class AugmentedAST<T extends SpoonAPI> {
             if (type.isTopLevel() && !type.isShadow()) {
                 final CtType<?> tmp = this.topsByFileName.put(relativized.toString(), type);
                 if (tmp != null) {
-                    System.out.println("should be null "+ tmp);
+                    System.out.println("put return should be null "+ tmp);
                     // throw new RuntimeException("sould be null "+ tmp);
                 };
             }
