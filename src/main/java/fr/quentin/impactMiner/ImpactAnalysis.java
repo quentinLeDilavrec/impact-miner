@@ -324,19 +324,19 @@ public class ImpactAnalysis {
                 if (!invocation.getPosition().isValidPosition())
                     continue;
                 final ImpactChain extended = current.extend(new ImpactElement(invocation), "call");
-                putIfNotRedundant(extended, weight);
+                putIfNotRedundant(extended, weight - 1);
             }
             CtExecutable<?> override = resolver.override(current_elem);
             if (override != null && override.getPosition().isValidPosition()) {
                 final ImpactChain extended = current.extend(new ImpactElement(override), "override");
-                putIfNotRedundant(extended, weight);
+                putIfNotRedundant(extended, weight - 1);
 
             }
             Set<CtExecutable<?>> overrides = resolver.overrides(current_elem);
             for (CtExecutable<?> overri : overrides) {
                 if (overri.getPosition().isValidPosition()) {
                     final ImpactChain extended = current.extend(new ImpactElement(overri), "overrided by");
-                    putIfNotRedundant(extended, weight);
+                    putIfNotRedundant(extended, weight - 1);
 
                 }
 
@@ -450,25 +450,25 @@ public class ImpactAnalysis {
                 }
             } else if (expr instanceof CtTargetedExpression) { // big approx
                 CtTargetedExpression<?, ?> targeted = (CtTargetedExpression<?, ?>) expr;
-                followExprFromArgument(current, targeted.getTarget(), more, weight);
+                followExprFromArgument(current, targeted.getTarget(), more, weight - 1);
             } else if (expr instanceof CtVariableAccess) {
                 CtVariable<?> x = resolver.reference((CtVariableAccess<?>) expr);
                 final ImpactChain extended = current.extend(new ImpactElement(x), "argument access", more);
                 putIfNotRedundant(extended, weight - 1);
             } else if (expr instanceof CtAssignment) {
                 CtAssignment<?, ?> assign = (CtAssignment<?, ?>) expr;
-                followExprFromArgument(current, assign.getAssigned(), more, weight);
+                followExprFromArgument(current, assign.getAssigned(), more, weight - 1);
             } else if (expr instanceof CtConditional) {
                 CtConditional<?> cond = (CtConditional<?>) expr;
-                followExprFromArgument(current, cond.getThenExpression(), more, weight);
-                followExprFromArgument(current, cond.getElseExpression(), more, weight);
+                followExprFromArgument(current, cond.getThenExpression(), more, weight - 1);
+                followExprFromArgument(current, cond.getElseExpression(), more, weight - 1);
             } else if (expr instanceof CtBinaryOperator) {
                 CtBinaryOperator<?> op = (CtBinaryOperator<?>) expr;
-                followExprFromArgument(current, op.getLeftHandOperand(), more, weight);
-                followExprFromArgument(current, op.getRightHandOperand(), more, weight);
+                followExprFromArgument(current, op.getLeftHandOperand(), more, weight - 1);
+                followExprFromArgument(current, op.getRightHandOperand(), more, weight - 1);
             } else if (expr instanceof CtUnaryOperator) {
                 CtUnaryOperator<?> op = (CtUnaryOperator<?>) expr;
-                followExprFromArgument(current, op.getOperand(), more, weight);
+                followExprFromArgument(current, op.getOperand(), more, weight - 1);
             } else if (expr instanceof CtLiteral) {
                 return;
             } else {
@@ -628,7 +628,12 @@ public class ImpactAnalysis {
                 }
 
                 if (parent instanceof CtExpression) {
-                    followValue(current, (CtExpression<?>) parent, weight);
+                    followValue(current, (CtExpression<?>) parent, weight - 1);
+                } else {
+                    CtElement parentAlt = current_elem.getParent(CtExecutable.class);
+                    final ImpactChain extended = current.extend(new ImpactElement((parentAlt)),
+                            "possible side effect in context");
+                    putIfNotRedundant(extended, weight - 10);
                 }
             } catch (final ParentNotInitializedException e) {
                 logger.log(Level.WARNING, "parentNotInitializedException", e);
@@ -662,13 +667,13 @@ public class ImpactAnalysis {
                 if (parentExecutable != null) {
                     final ImpactChain extended = current.extend(new ImpactElement(parentExecutable),
                             "expand to executable");
-                    putIfNotRedundant(extended, weight);
+                    putIfNotRedundant(extended, weight - 1);
 
                 } else {
                     final CtType<?> parentType = current_elem.getParent(CtType.class);
                     if (parentType != null) {
                         final ImpactChain extended = current.extend(new ImpactElement(parentType), "expand to type");
-                        putIfNotRedundant(extended, weight);
+                        putIfNotRedundant(extended, weight - 1);
                     } else {
                         finishChain(current);
                     }
@@ -821,7 +826,7 @@ public class ImpactAnalysis {
                     continue;
                 if (x instanceof CtVariableRead) {
                     final ImpactChain extended = current.extend(new ImpactElement(x), "read");
-                    putIfNotRedundant(extended, weight);
+                    putIfNotRedundant(extended, weight - 1);
                 }
             }
         }
