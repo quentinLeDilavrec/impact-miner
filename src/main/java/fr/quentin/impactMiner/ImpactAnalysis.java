@@ -105,7 +105,6 @@ public class ImpactAnalysis {
         return false;
     }
 
-
     public Set<SourcePosition> getImpactedInvocations(final String string, final int i, final int j) {
         return null;
     }
@@ -631,9 +630,11 @@ public class ImpactAnalysis {
                     followValue(current, (CtExpression<?>) parent, weight - 1);
                 } else {
                     CtElement parentAlt = current_elem.getParent(CtExecutable.class);
-                    final ImpactChain extended = current.extend(new ImpactElement((parentAlt)),
-                            "possible side effect in context");
-                    putIfNotRedundant(extended, weight - 10);
+                    if (parentAlt != null) {
+                        final ImpactChain extended = current.extend(new ImpactElement((parentAlt)),
+                                "possible side effect in context");
+                        putIfNotRedundant(extended, weight - 10);
+                    }
                 }
             } catch (final ParentNotInitializedException e) {
                 logger.log(Level.WARNING, "parentNotInitializedException", e);
