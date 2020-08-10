@@ -193,8 +193,10 @@ public class Resolver {
                 });
                 type.putMetadata(Resolver.METADATA_KEY_OVERRIDES_COUNT, overriders.size());
                 for (final CtExecutable<?> exe : overriders) {
-                    insertMetaData(exe.getReference().getOverridingExecutable().getDeclaration(),
-                            Resolver.METADATA_KEY_OVERRIDES, exe);
+                    CtExecutable<?> declaration = exe.getReference().getOverridingExecutable().getDeclaration();
+                    if (declaration != null) {
+                        insertMetaData(declaration, Resolver.METADATA_KEY_OVERRIDES, exe);
+                    }
                 }
             }
         }
