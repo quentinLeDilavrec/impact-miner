@@ -461,8 +461,10 @@ public class ImpactAnalysis {
                 followExprFromArgument(current, targeted.getTarget(), more, weight - 1);
             } else if (expr instanceof CtVariableAccess) {
                 CtVariable<?> x = resolver.reference((CtVariableAccess<?>) expr);
-                final ImpactChain extended = current.extend(new ImpactElement(x), "argument access", more);
-                putIfNotRedundant(extended, weight - 1);
+                if (x!=null) {
+                    final ImpactChain extended = current.extend(new ImpactElement(x), "argument access", more);
+                    putIfNotRedundant(extended, weight - 1);
+                }
             } else if (expr instanceof CtAssignment) {
                 CtAssignment<?, ?> assign = (CtAssignment<?, ?>) expr;
                 followExprFromArgument(current, assign.getAssigned(), more, weight - 1);
