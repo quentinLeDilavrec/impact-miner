@@ -25,6 +25,9 @@ import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtCase;
+import spoon.reflect.code.CtCatch;
+import spoon.reflect.code.CtCodeElement;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExecutableReferenceExpression;
@@ -43,9 +46,12 @@ import spoon.reflect.code.CtNewArray;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtSuperAccess;
+import spoon.reflect.code.CtSwitch;
+import spoon.reflect.code.CtSynchronized;
 import spoon.reflect.code.CtTargetedExpression;
 import spoon.reflect.code.CtThisAccess;
 import spoon.reflect.code.CtThrow;
+import spoon.reflect.code.CtTry;
 import spoon.reflect.code.CtTypeAccess;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
@@ -69,6 +75,7 @@ import spoon.reflect.path.CtRole;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.CtVisitor;
 import spoon.reflect.visitor.Filter;
+import spoon.reflect.visitor.LexicalScope;
 import spoon.reflect.visitor.chain.CtQuery;
 import spoon.reflect.visitor.filter.TypeFilter;
 
@@ -372,7 +379,8 @@ public class ImpactAnalysis {
                 final Map<String, Object> more, final Integer weight) throws IOException {
             if (expr instanceof CtAbstractInvocation) {
                 final ImpactChain extended = current.extend(new ImpactElement(expr), "argument access", more);
-                //putIfNotRedundant(extended, weight - 1); // I don't think it's a good idea to put it in the queue as is :/
+                // putIfNotRedundant(extended, weight - 1); // I don't think it's a good idea to
+                // put it in the queue as is :/
                 // TODO Maybe follow target calling this method ?
                 int current_argument_index = 0;
                 for (CtExpression<?> arg : ((CtAbstractInvocation<?>) expr).getArguments()) {
@@ -601,23 +609,19 @@ public class ImpactAnalysis {
                 } else if (parent instanceof CtBlock) {
                     return;
                 } else if (parent instanceof CtIf && roleInParent.equals(CtRole.CONDITION)) {
-                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)),
-                            "condition");
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)), "condition");
                     putIfNotRedundant(extended, weight - 10);
                     return;
                 } else if (parent instanceof CtIf && roleInParent.equals(CtRole.THEN)) {
-                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)),
-                            "then");
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)), "then");
                     putIfNotRedundant(extended, weight - 10);
                     return;
                 } else if (parent instanceof CtIf && roleInParent.equals(CtRole.ELSE)) {
-                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)),
-                            "else");
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)), "else");
                     putIfNotRedundant(extended, weight - 10);
                     return;
                 } else if (parent instanceof CtLoop && roleInParent.equals(CtRole.BODY)) {
-                    final ImpactChain extended = current.extend(new ImpactElement(((CtLoop) parent)),
-                            "body");
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtLoop) parent)), "body");
                     putIfNotRedundant(extended, weight - 10);
                     return;
                 } else if (parent instanceof CtForEach && roleInParent.equals(CtRole.EXPRESSION)) {
@@ -626,8 +630,7 @@ public class ImpactAnalysis {
                     putIfNotRedundant(extended, weight - 1);
                     return;
                 } else if (parent instanceof CtThrow) { // TODO implement something to follow value in catch clause
-                    final ImpactChain extended = current.extend(new ImpactElement(((CtThrow) parent)),
-                            "throw");
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtThrow) parent)), "throw");
                     putIfNotRedundant(extended, weight - 1);
                     return;
                 } else if (parent instanceof CtBinaryOperator) {
@@ -661,45 +664,50 @@ public class ImpactAnalysis {
             }
         }
 
-        public void expandToExecutableOrType(final ImpactChain current, final CtElement current_elem,
-                final Integer weight) throws IOException {
+        private Filter<CtCodeElement> scopeFilter = new Filter<CtCodeElement>() {
+
+            @Override
+            public boolean matches(CtCodeElement element) {
+                return element instanceof CtBlock || element instanceof CtCase || element instanceof CtCatch
+                        || element instanceof CtSwitch || element instanceof CtIf || element instanceof CtSynchronized
+                        || element instanceof CtLoop || element instanceof CtTry || element instanceof CtType
+                        || element instanceof CtExecutable;
+            }
+
+        };
+
+        public void expandToScopeOtherwiseExecutableOtherwiseType(final ImpactChain current,
+                final CtElement current_elem, final Integer weight) throws IOException {
             try {
-
-                // // expand to variable
-                // final CtVariable<?> parentVariable =
-                // current_elem.getParent(CtVariable.class);
-                // final CtAssignment<?,?> aaaa = current_elem.getParent(CtAssignment.class);
-                // CtExpression<?> bbbb = aaaa.getAssigned();
-                // Set<CtVariableAccess<?>> a = findReferencings(bbbb); //
-                // findVariableAccess(bbbb);
-
-                // for (CtVariableAccess<?> b : a) {
-                // Set<CtVariableAccess<?>> c = findReferencables(bbbb);
-                // }
-                // if (parentVariable != null) {
-                // final ImpactChain extended = current.extend(new
-                // ImpactElement(parentVariable),
-                // "expand to variable");
-                // explorer.alreadyMarchedChains.put(extended, weight + 0);
-                // processedChains.add(extended);
-                // } else {
-                // // expand to executable
-                final CtExecutable<?> parentExecutable = current_elem.getParent(CtExecutable.class);
-                if (parentExecutable != null) {
-                    final ImpactChain extended = current.extend(new ImpactElement(parentExecutable),
-                            "expand to executable");
-                    putIfNotRedundant(extended, weight - 1);
-
-                } else {
-                    final CtType<?> parentType = current_elem.getParent(CtType.class);
-                    if (parentType != null) {
-                        final ImpactChain extended = current.extend(new ImpactElement(parentType), "expand to type");
+                final CtCodeElement parentScopeBlock = current_elem.getParent(scopeFilter);
+                if (parentScopeBlock != null) {
+                    if (parentScopeBlock instanceof CtType) {
+                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
+                                "expand");
                         putIfNotRedundant(extended, weight - 1);
+                    } else if (parentScopeBlock instanceof CtExecutable) {
+                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
+                                "expand");
+                        putIfNotRedundant(extended, weight - 1);
+                    } else if (parentScopeBlock instanceof CtBlock) {
+                        final CtElement parentExecutable = parentScopeBlock.getParent();
+                        if (parentExecutable instanceof CtExecutable) {
+                            final ImpactChain extended = current.extend(new ImpactElement(parentExecutable),
+                                    "expand");
+                            putIfNotRedundant(extended, weight - 1);
+                        } else {
+                            final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
+                                    "expand");
+                            putIfNotRedundant(extended, weight - 1);
+                        }
                     } else {
-                        finishChain(current);
+                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
+                                "expand");
+                        putIfNotRedundant(extended, weight - 1);
                     }
+                } else {
+                    finishChain(current);
                 }
-                // }
             } catch (final ParentNotInitializedException e) {
                 logger.info("ParentNotInitializedException");
             }
@@ -899,7 +907,7 @@ public class ImpactAnalysis {
             } else if (current_elem instanceof CtType) {
                 explorer.followUses(current, (CtType<?>) current_elem, weight);
             } else {
-                explorer.expandToExecutableOrType(current, current_elem, weight);
+                explorer.expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem, weight);
             }
         }
         List<ImpactChain> res = new ArrayList<>();

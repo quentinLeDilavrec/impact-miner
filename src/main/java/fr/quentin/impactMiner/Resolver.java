@@ -320,7 +320,7 @@ public class Resolver {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> Set<CtType<?>> referencesAllUsagesPerType(final CtType<T> declaringElement) {
+    public <T> Set<CtType<?>> referencesAllUsagesFromTypes(final CtType<T> declaringElement) {
         final Object types = declaringElement.getMetadata(Resolver.METADATA_KEY_REVERSE);
         assert types != null;
         if (types instanceof Uses) {
@@ -332,12 +332,10 @@ public class Resolver {
 
     @SuppressWarnings("unchecked")
     public <T> Set<CtTypedElement<?>> references(final CtType<T> declaringElement) {
-        // declaringElement.getReference().getOverridingExecutable().putMetadata(key,
-        // val);
         final Object typed = declaringElement.getMetadata(Resolver.METADATA_KEY_TYPED);
         if (typed == null) {
             declaringElement.putMetadata(METADATA_KEY_TYPED, makeUses(CtTypedElement.class));
-            initTypesForTyped(declaringElement.getParent(CtType.class));
+            initTypesForTyped(declaringElement);
             return ((Uses<CtTypedElement<?>>) declaringElement.getMetadata(Resolver.METADATA_KEY_TYPED)).getValues();
         } else if (typed instanceof Uses) {
             return ((Uses<CtTypedElement<?>>) typed).getValues();
