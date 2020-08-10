@@ -372,7 +372,8 @@ public class ImpactAnalysis {
                 final Map<String, Object> more, final Integer weight) throws IOException {
             if (expr instanceof CtAbstractInvocation) {
                 final ImpactChain extended = current.extend(new ImpactElement(expr), "argument access", more);
-                putIfNotRedundant(extended, weight - 1);
+                //putIfNotRedundant(extended, weight - 1); // I don't think it's a good idea to put it in the queue as is :/
+                // TODO Maybe follow target calling this method ?
                 int current_argument_index = 0;
                 for (CtExpression<?> arg : ((CtAbstractInvocation<?>) expr).getArguments()) {
                     final Map<String, Object> more2 = new HashMap<>();
@@ -599,9 +600,25 @@ public class ImpactAnalysis {
                     return;
                 } else if (parent instanceof CtBlock) {
                     return;
-                } else if (parent instanceof CtIf) {
+                } else if (parent instanceof CtIf && roleInParent.equals(CtRole.CONDITION)) {
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)),
+                            "condition");
+                    putIfNotRedundant(extended, weight - 10);
+                    return;
+                } else if (parent instanceof CtIf && roleInParent.equals(CtRole.THEN)) {
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)),
+                            "then");
+                    putIfNotRedundant(extended, weight - 10);
+                    return;
+                } else if (parent instanceof CtIf && roleInParent.equals(CtRole.ELSE)) {
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)),
+                            "else");
+                    putIfNotRedundant(extended, weight - 10);
                     return;
                 } else if (parent instanceof CtLoop && roleInParent.equals(CtRole.BODY)) {
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtLoop) parent)),
+                            "body");
+                    putIfNotRedundant(extended, weight - 10);
                     return;
                 } else if (parent instanceof CtForEach && roleInParent.equals(CtRole.EXPRESSION)) {
                     final ImpactChain extended = current.extend(new ImpactElement(((CtForEach) parent).getVariable()),
@@ -609,6 +626,9 @@ public class ImpactAnalysis {
                     putIfNotRedundant(extended, weight - 1);
                     return;
                 } else if (parent instanceof CtThrow) { // TODO implement something to follow value in catch clause
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtThrow) parent)),
+                            "throw");
+                    putIfNotRedundant(extended, weight - 1);
                     return;
                 } else if (parent instanceof CtBinaryOperator) {
                 } else if (parent instanceof CtFieldRead) { // TODO confirm doing nothing
@@ -882,7 +902,10 @@ public class ImpactAnalysis {
                 explorer.expandToExecutableOrType(current, current_elem, weight);
             }
         }
-        return explorer.finishedChains;
+        List<ImpactChain> res = new ArrayList<>();
+        res.addAll(explorer.redundantChains); // at this point can't filter the one that do not impact tests
+        res.addAll(explorer.finishedChains);
+        return res;
     }
 
     // private List<ImpactChain<? extends CtElement>> exploreASTDecl(final
