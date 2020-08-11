@@ -18,6 +18,7 @@ import com.google.gson.JsonPrimitive;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 
+import fr.quentin.impactMiner.ImpactAnalysis.ImpactAnalizerException;
 import spoon.MavenLauncher;
 import spoon.reflect.CtModel;
 import spoon.reflect.code.CtConstructorCall;
@@ -37,7 +38,7 @@ import spoon.support.compiler.jdt.JDTBasedSpoonCompiler;
 
 public class App {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, ImpactAnalizerException {
         MavenLauncher launcherAll = new MavenLauncher(
                 "/home/quentin/resources/Versions/graphhopper/graphhopper/7f80425b6a0af9bdfef12c8a873676e39e0a04a6/",
                 MavenLauncher.SOURCE_TYPE.ALL_SOURCE);
@@ -71,7 +72,7 @@ public class App {
         fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1);
     }
 
-    public static void main2(String[] args) throws IOException {
+    public static void main2(String[] args) throws IOException, ImpactAnalizerException {
         // the second parameter can be APP_SOURCE / TEST_SOURCE / ALL_SOURCE
         // ../coming/pom.xml ../DummyProject/pom.xml ../gumtree-spoon-ast-diff/pom.xml
         // ../impact-miner/pom.xml ../server/pom.xml ../spoon/pom.xml

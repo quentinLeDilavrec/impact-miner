@@ -15,6 +15,7 @@ import fr.quentin.impactMiner.AugmentedAST;
 import fr.quentin.impactMiner.ImpactAnalysis;
 import fr.quentin.impactMiner.ImpactChain;
 import fr.quentin.impactMiner.Position;
+import fr.quentin.impactMiner.ImpactAnalysis.ImpactAnalizerException;
 import spoon.MavenLauncher;
 import spoon.support.compiler.jdt.JDTBasedSpoonCompiler;
 
@@ -31,7 +32,7 @@ public class AppTest {
     }
 
     @Test
-    public void simpleSysTest() {
+    public void simpleSysTest() throws ImpactAnalizerException {
         MavenLauncher launcherAll = new MavenLauncher(
                 "/home/quentin/resources/Versions/graphhopper/graphhopper/7f80425b6a0af9bdfef12c8a873676e39e0a04a6/",
                 MavenLauncher.SOURCE_TYPE.ALL_SOURCE);

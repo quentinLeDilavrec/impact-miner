@@ -95,9 +95,9 @@ public class ImpactAnalysis {
     }
 
 
-    private final class ImpactAnalizerException extends Exception {
+    public class ImpactAnalizerException extends Exception {
         private static final long serialVersionUID = 4914245185480342853L;
-        private ImpactAnalizerException(String message) {
+        ImpactAnalizerException(String message) {
 			super(message);
 		}
     }
