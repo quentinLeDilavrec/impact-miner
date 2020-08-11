@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import spoon.MavenLauncher;
+import spoon.reflect.CtModel;
 import spoon.reflect.code.CtAbstractInvocation;
 import spoon.reflect.code.CtAnnotationFieldAccess;
 import spoon.reflect.code.CtArrayAccess;
@@ -89,15 +90,35 @@ public class ImpactAnalysis {
 
     public final AugmentedAST<MavenLauncher> augmented;
 
-    public ImpactAnalysis(final AugmentedAST<MavenLauncher> _ast) {
+    public ImpactAnalysis(final AugmentedAST<MavenLauncher> _ast) throws ImpactAnalizerException {
         this(_ast, 10);
     }
 
-    public ImpactAnalysis(final AugmentedAST<MavenLauncher> augmentedAst, final int maxChainLength) {
+
+    private final class ImpactAnalizerException extends Exception {
+        private static final long serialVersionUID = 4914245185480342853L;
+        private ImpactAnalizerException(String message) {
+			super(message);
+		}
+    }
+    
+    public ImpactAnalysis(final AugmentedAST<MavenLauncher> augmentedAst, final int maxChainLength)
+            throws ImpactAnalizerException {
         this.augmented = augmentedAst;
         this.maxChainLength = maxChainLength;
-
-        this.resolver = new Resolver(augmented.launcher.getModel().getAllTypes());
+        if (augmented==null) {
+            throw new ImpactAnalizerException("augmentedAst is null");            
+        }
+        MavenLauncher launcher = augmented.launcher;
+        if (launcher==null) {
+            throw new ImpactAnalizerException("launcher is null");            
+        }
+        CtModel model = launcher.getModel();
+        if (model==null) {
+            throw new ImpactAnalizerException("model is null");            
+        }
+        Collection<CtType<?>> allTypes = model.getAllTypes();
+        this.resolver = new Resolver(allTypes);
     }
 
     public static Boolean isTest(final CtExecutable<?> y) {
@@ -230,7 +251,8 @@ public class ImpactAnalysis {
         return exploreAST2(chains, true);
     }
 
-    private class FilterEvolvedElements implements Filter<CtElement> {
+
+	private class FilterEvolvedElements implements Filter<CtElement> {
 
         private final String file;
         private final int start;
