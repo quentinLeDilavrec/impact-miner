@@ -110,8 +110,8 @@ public class Resolver {
             for (final CtTypeReference<?> superInterface : superInterfaces) {
                 CtType<?> typeDeclaration = superInterface.getTypeDeclaration();
                 if (typeDeclaration != null) {
+                    insertMetaData(typeDeclaration, Resolver.METADATA_KEY_SUPER_INTERFACES, makeUses(CtType.class), type);
                 }
-                insertMetaData(typeDeclaration, Resolver.METADATA_KEY_SUPER_INTERFACES, makeUses(CtType.class), type);
             }
         }
     }
