@@ -90,32 +90,32 @@ public class ImpactAnalysis {
 
     public final AugmentedAST<MavenLauncher> augmented;
 
-    public ImpactAnalysis(final AugmentedAST<MavenLauncher> _ast) throws ImpactAnalizerException {
+    public ImpactAnalysis(final AugmentedAST<MavenLauncher> _ast) throws ImpactAnalysisException {
         this(_ast, 10);
     }
 
 
-    public class ImpactAnalizerException extends Exception {
+    public class ImpactAnalysisException extends Exception {
         private static final long serialVersionUID = 4914245185480342853L;
-        ImpactAnalizerException(String message) {
+        ImpactAnalysisException(String message) {
 			super(message);
 		}
     }
     
     public ImpactAnalysis(final AugmentedAST<MavenLauncher> augmentedAst, final int maxChainLength)
-            throws ImpactAnalizerException {
+            throws ImpactAnalysisException {
         this.augmented = augmentedAst;
         this.maxChainLength = maxChainLength;
         if (augmented==null) {
-            throw new ImpactAnalizerException("augmentedAst is null");            
+            throw new ImpactAnalysisException("augmentedAst is null");            
         }
         MavenLauncher launcher = augmented.launcher;
         if (launcher==null) {
-            throw new ImpactAnalizerException("launcher is null");            
+            throw new ImpactAnalysisException("launcher is null");            
         }
         CtModel model = launcher.getModel();
         if (model==null) {
-            throw new ImpactAnalizerException("model is null");            
+            throw new ImpactAnalysisException("model is null");            
         }
         Collection<CtType<?>> allTypes = model.getAllTypes();
         this.resolver = new Resolver(allTypes);
