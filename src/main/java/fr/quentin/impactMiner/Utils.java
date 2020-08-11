@@ -6,7 +6,7 @@ import spoon.reflect.declaration.CtElement;
 public class Utils {
     public static CtElement matchExact(CtElement ele, int start, int end) {
         SourcePosition position = ele.getPosition();
-        if (!position.isValidPosition()) {
+        if (position == null || !position.isValidPosition()) {
             return null;
         }
         int sourceStart = position.getSourceStart();
@@ -24,7 +24,7 @@ public class Utils {
                 }
                 i++;
             }
-            System.out.println("did not find "+start+" "+end+" in"+ ele);
+            System.out.println("did not find " + start + " " + end + " in" + ele);
             return null;
         } else if (sourceEnd < start) {
             return null;
@@ -34,9 +34,10 @@ public class Utils {
             return null;
         }
     }
+
     public static CtElement matchApprox(CtElement ele, int start, int end) {
         SourcePosition position = ele.getPosition();
-        if (!position.isValidPosition()) {
+        if (position == null || !position.isValidPosition()) {
             return null;
         }
         int sourceStart = position.getSourceStart();
@@ -54,7 +55,7 @@ public class Utils {
                 }
                 i++;
             }
-            System.out.println("approx match of "+ds+" "+de+" at"+ position);
+            System.out.println("approx match of " + ds + " " + de + " at" + position);
             return ele;
         } else if (sourceEnd < start) {
             return null;
