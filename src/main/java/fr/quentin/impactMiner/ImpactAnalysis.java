@@ -423,8 +423,11 @@ public class ImpactAnalysis {
                     assert false : parent;
                 }
             } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
-                    && (((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class")
-                            || ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal())) {
+                    && ((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class")) {
+                return;
+            } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
+                    && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration() != null
+                            && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal()) {
                 return;
             } else if (expr instanceof CtTypeAccess && expr.getParent(CtType.class)
                     .equals(((CtTypeAccess<?>) expr).getAccessedType().getTypeDeclaration())) {
@@ -461,7 +464,7 @@ public class ImpactAnalysis {
                 followExprFromArgument(current, targeted.getTarget(), more, weight - 1);
             } else if (expr instanceof CtVariableAccess) {
                 CtVariable<?> x = resolver.reference((CtVariableAccess<?>) expr);
-                if (x!=null) {
+                if (x != null) {
                     final ImpactChain extended = current.extend(new ImpactElement(x), "argument access", more);
                     putIfNotRedundant(extended, weight - 1);
                 }
@@ -684,27 +687,22 @@ public class ImpactAnalysis {
                 final CtCodeElement parentScopeBlock = current_elem.getParent(scopeFilter);
                 if (parentScopeBlock != null) {
                     if (parentScopeBlock instanceof CtType) {
-                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
-                                "expand");
+                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
                         putIfNotRedundant(extended, weight - 1);
                     } else if (parentScopeBlock instanceof CtExecutable) {
-                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
-                                "expand");
+                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
                         putIfNotRedundant(extended, weight - 1);
                     } else if (parentScopeBlock instanceof CtBlock) {
                         final CtElement parentExecutable = parentScopeBlock.getParent();
                         if (parentExecutable instanceof CtExecutable) {
-                            final ImpactChain extended = current.extend(new ImpactElement(parentExecutable),
-                                    "expand");
+                            final ImpactChain extended = current.extend(new ImpactElement(parentExecutable), "expand");
                             putIfNotRedundant(extended, weight - 1);
                         } else {
-                            final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
-                                    "expand");
+                            final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
                             putIfNotRedundant(extended, weight - 1);
                         }
                     } else {
-                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock),
-                                "expand");
+                        final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
                         putIfNotRedundant(extended, weight - 1);
                     }
                 } else {
