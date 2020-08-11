@@ -94,28 +94,28 @@ public class ImpactAnalysis {
         this(_ast, 10);
     }
 
-
     public class ImpactAnalysisException extends Exception {
         private static final long serialVersionUID = 4914245185480342853L;
+
         ImpactAnalysisException(String message) {
-			super(message);
-		}
+            super(message);
+        }
     }
-    
+
     public ImpactAnalysis(final AugmentedAST<MavenLauncher> augmentedAst, final int maxChainLength)
             throws ImpactAnalysisException {
         this.augmented = augmentedAst;
         this.maxChainLength = maxChainLength;
-        if (augmented==null) {
-            throw new ImpactAnalysisException("augmentedAst is null");            
+        if (augmented == null) {
+            throw new ImpactAnalysisException("augmentedAst is null");
         }
         MavenLauncher launcher = augmented.launcher;
-        if (launcher==null) {
-            throw new ImpactAnalysisException("launcher is null");            
+        if (launcher == null) {
+            throw new ImpactAnalysisException("launcher is null");
         }
         CtModel model = launcher.getModel();
-        if (model==null) {
-            throw new ImpactAnalysisException("model is null");            
+        if (model == null) {
+            throw new ImpactAnalysisException("model is null");
         }
         Collection<CtType<?>> allTypes = model.getAllTypes();
         this.resolver = new Resolver(allTypes);
@@ -251,8 +251,7 @@ public class ImpactAnalysis {
         return exploreAST2(chains, true);
     }
 
-
-	private class FilterEvolvedElements implements Filter<CtElement> {
+    private class FilterEvolvedElements implements Filter<CtElement> {
 
         private final String file;
         private final int start;
@@ -449,7 +448,7 @@ public class ImpactAnalysis {
                 return;
             } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
                     && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration() != null
-                            && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal()) {
+                    && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal()) {
                 return;
             } else if (expr instanceof CtTypeAccess && expr.getParent(CtType.class)
                     .equals(((CtTypeAccess<?>) expr).getAccessedType().getTypeDeclaration())) {
@@ -630,29 +629,40 @@ public class ImpactAnalysis {
                     // } else if (parent instanceof CtConditional) {
                     // } else if (parent instanceof CtVariableAccess) {
                 } else if (parent instanceof CtArrayAccess && roleInParent.equals(CtRole.EXPRESSION)) {
-                    return;
+                    // return;
                 } else if (parent instanceof CtConditional && roleInParent.equals(CtRole.CONDITION)) {
-                    return;
+                    // return;
                 } else if (parent instanceof CtBlock) {
-                    return;
+                    // return;
                 } else if (parent instanceof CtIf && roleInParent.equals(CtRole.CONDITION)) {
                     final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)), "condition");
-                    putIfNotRedundant(extended, weight - 10);
+                    putIfNotRedundant(extended, weight - 5);
                     return;
                 } else if (parent instanceof CtIf && roleInParent.equals(CtRole.THEN)) {
                     final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)), "then");
-                    putIfNotRedundant(extended, weight - 10);
+                    putIfNotRedundant(extended, weight - 5);
                     return;
                 } else if (parent instanceof CtIf && roleInParent.equals(CtRole.ELSE)) {
                     final ImpactChain extended = current.extend(new ImpactElement(((CtIf) parent)), "else");
-                    putIfNotRedundant(extended, weight - 10);
+                    putIfNotRedundant(extended, weight - 5);
                     return;
                 } else if (parent instanceof CtLoop && roleInParent.equals(CtRole.BODY)) {
                     final ImpactChain extended = current.extend(new ImpactElement(((CtLoop) parent)), "body");
-                    putIfNotRedundant(extended, weight - 10);
+                    putIfNotRedundant(extended, weight - 5);
                     return;
                 } else if (parent instanceof CtForEach && roleInParent.equals(CtRole.EXPRESSION)) {
                     final ImpactChain extended = current.extend(new ImpactElement(((CtForEach) parent).getVariable()),
+                            "value");
+                    putIfNotRedundant(extended, weight - 1);
+                    return;
+                } else if (parent instanceof CtFor && roleInParent.equals(CtRole.EXPRESSION)) {
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtFor) parent)),
+                            "condition");
+                    putIfNotRedundant(extended, weight - 1);
+                    return;
+                } else if (parent instanceof CtFor && roleInParent.equals(CtRole.FOR_INIT)) {
+                } else if (parent instanceof CtFor && roleInParent.equals(CtRole.FOR_UPDATE)) {
+                    final ImpactChain extended = current.extend(new ImpactElement(((CtFor) parent)),
                             "value");
                     putIfNotRedundant(extended, weight - 1);
                     return;
@@ -674,6 +684,11 @@ public class ImpactAnalysis {
                     logger.log(Level.WARNING,
                             "followValue case not handled: " + parent.getClass() + " " + roleInParent.name());
                     assert false : parent;
+                    /**
+                     * CtForImpl EXPRESSION
+                     * CtFieldWriteImpl TARGET
+                     * CtAssignmentImpl ASSIGNED
+                     */
                 }
 
                 if (parent instanceof CtExpression) {
@@ -715,17 +730,23 @@ public class ImpactAnalysis {
                         final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
                         putIfNotRedundant(extended, weight - 1);
                     } else if (parentScopeBlock instanceof CtBlock) {
-                        final CtElement parentExecutable = parentScopeBlock.getParent();
-                        if (parentExecutable instanceof CtExecutable) {
-                            final ImpactChain extended = current.extend(new ImpactElement(parentExecutable), "expand");
+                        final CtElement parentEle = parentScopeBlock.getParent();
+                        if (parentEle == null) {
+                            final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
+                            putIfNotRedundant(extended, weight - 1);
+                        } else if (parentEle instanceof CtBlock) {
+                            final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
+                            putIfNotRedundant(extended, weight - 1);
+                        } else if (scopeFilter.matches(parentScopeBlock)) {
+                            final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
                             putIfNotRedundant(extended, weight - 1);
                         } else {
-                            final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
+                            final ImpactChain extended = current.extend(new ImpactElement(parentEle), "expand");
                             putIfNotRedundant(extended, weight - 1);
                         }
                     } else {
                         final ImpactChain extended = current.extend(new ImpactElement(parentScopeBlock), "expand");
-                        putIfNotRedundant(extended, weight - 1);
+                        putIfNotRedundant(extended, current_elem instanceof CtExecutable ? 0 : weight - 10);
                     }
                 } else {
                     finishChain(current);
