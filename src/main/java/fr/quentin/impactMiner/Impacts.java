@@ -116,20 +116,21 @@ public class Impacts implements JsonSerializable {
     // TODO try to remove ImpactElement wrapper
     private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerRoots;
     private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerTests;
-    private Set<ImpactElement> tests;
+    private Map<ImpactElement,Set<Object>> tests;
     private Set<ImpactElement> roots;
 
     public Impacts(Collection<ImpactChain> x) {
         this.verticesPerRoots = new HashMap<>();
         this.verticesPerTests = new HashMap<>();
-        this.tests = new HashSet<>();
+        this.tests = new HashMap<>();
         this.roots = new HashSet<>();
         for (ImpactChain si : x) {
             verticesPerRoots.putIfAbsent(si.getRoot(), new HashMap<>());
             verticesPerTests.putIfAbsent(si.getLast(), new HashMap<>());
             if (si.getLast().getContent() instanceof CtExecutable<?>
                     && ImpactAnalysis.isTest((CtExecutable<?>) si.getLast().getContent())) {
-                tests.add(si.getLast());
+                tests.putIfAbsent(si.getLast(),new HashSet<>());
+                tests.get(si.getLast()).addAll(si.getRoot().getEvolutions());
             }
             roots.add(si.getRoot());
             addCause(si, null, null);
@@ -293,7 +294,7 @@ public class Impacts implements JsonSerializable {
         }
         JsonArray perTests = new JsonArray();
         a.add("perTests", perTests);
-        for (ImpactElement e : this.tests) {
+        for (ImpactElement e : this.tests.keySet()) {
             JsonObject o = new JsonObject();
             perTests.add(o);
             Map<ImpactElement, Relations> curr = this.verticesPerTests.get(e);
@@ -320,7 +321,7 @@ public class Impacts implements JsonSerializable {
         return verticesPerRoots;
     }
 
-    public Set<ImpactElement> getTests() {
+    public Map<ImpactElement, Set<Object>> getTests() {
         return tests;
     }
 
