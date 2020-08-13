@@ -17,41 +17,40 @@ import spoon.reflect.declaration.CtElement;
  */
 public class ImpactElement {
     private Position position;
-    private CtElement content;
-    private Map<Object,Position> evolutions = new HashMap<>();
+    private final CtElement content;
+    final Map<String, Object> more = new HashMap<>();
+    private final Map<Object, Position> evolutions = new HashMap<>();
 
     /**
      * @return the getEvolutionWithNonCorrectedPosition
      */
-    public Map<Object,Position> getEvolutionWithNonCorrectedPosition() {
+    public Map<Object, Position> getEvolutionWithNonCorrectedPosition() {
         return evolutions;
     }
 
     public ImpactElement(CtElement e) throws IOException {
-        this(e.getPosition());
-        this.content = e;
+        this(e.getPosition(), e);
     }
 
     public ImpactElement(Position position) {
-        this.position = position;
+        this(position, null);
     }
 
     public ImpactElement(String file, int start, int end) {
-        this.position = new Position(file, start, end);
-    }
-
-    public ImpactElement(SourcePosition p) throws IOException {
-        this(p.getFile().getCanonicalPath(), p.getSourceStart(), p.getSourceEnd());
+        this(file, start, end, null);
     }
 
     public ImpactElement(String file, int start, int end, CtElement content) {
-        this(file, start, end);
+        this.position = new Position(file, start, end);
         this.content = content;
     }
 
+    public ImpactElement(SourcePosition position) throws IOException {
+        this(position, null);
+    }
+
     public ImpactElement(SourcePosition position, CtElement content) throws IOException {
-        this(position);
-        this.content = content;
+        this(position.getFile().getCanonicalPath(), position.getSourceStart(), position.getSourceEnd(), content);
     }
 
     public ImpactElement(Position position, CtElement content) {
@@ -73,7 +72,7 @@ public class ImpactElement {
         return evolutions.keySet();
     }
 
-    public void addEvolution(Object evolution, Position nonCorrectedPosition ) {
+    public void addEvolution(Object evolution, Position nonCorrectedPosition) {
         evolutions.put(evolution, nonCorrectedPosition);
     }
 
