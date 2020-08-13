@@ -28,7 +28,7 @@ public class ImpactElement {
         return evolutions;
     }
 
-    public ImpactElement(CtElement e) throws IOException {
+    public ImpactElement(CtElement e) {
         this(e.getPosition(), e);
     }
 
@@ -45,12 +45,12 @@ public class ImpactElement {
         this.content = content;
     }
 
-    public ImpactElement(SourcePosition position) throws IOException {
+    public ImpactElement(SourcePosition position) {
         this(position, null);
     }
 
-    public ImpactElement(SourcePosition position, CtElement content) throws IOException {
-        this(position.getFile().getCanonicalPath(), position.getSourceStart(), position.getSourceEnd(), content);
+    public ImpactElement(SourcePosition position, CtElement content) {
+        this(position.getFile().getAbsolutePath(), position.getSourceStart(), position.getSourceEnd(), content);
     }
 
     public ImpactElement(Position position, CtElement content) {

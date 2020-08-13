@@ -1,4 +1,4 @@
-package fr.quentin;
+package fr.quentin.impactMiner;
 
 import static org.junit.Assert.assertTrue;
 
@@ -50,7 +50,7 @@ public class AppTest {
         AugmentedAST<MavenLauncher> aug = new AugmentedAST<>(launcherAll);
         ImpactAnalysis l = new ImpactAnalysis(aug, 10);
 
-        List<ImpactChain> imptst1;
+        fr.quentin.impactMiner.Explorer imptst1;
         try {
             Set<ImmutablePair<Object, Position>> tmp = new HashSet<>();
             tmp.add(new ImmutablePair<>(null,
@@ -63,6 +63,6 @@ public class AppTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1);
+        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1.finishedChains,imptst1.redundantChains);
     }
 }

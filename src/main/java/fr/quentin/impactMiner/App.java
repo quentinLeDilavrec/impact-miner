@@ -55,7 +55,7 @@ public class App {
         AugmentedAST<MavenLauncher> aug = new AugmentedAST<>(launcherAll);
         ImpactAnalysis l = new ImpactAnalysis(aug, 100);
 
-        List<ImpactChain> imptst1;
+        Explorer imptst1;
         try {
             Set<ImmutablePair<Object, Position>> tmp = new HashSet<>();
             tmp.add(new ImmutablePair<>(null,
@@ -69,7 +69,7 @@ public class App {
             throw new RuntimeException(e);
         }
         System.out.println(imptst1);
-        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1);
+        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1.finishedChains, imptst1.redundantChains);
     }
 
     public static void main2(String[] args) throws IOException, ImpactAnalysisException {
@@ -231,9 +231,9 @@ public class App {
                 e.printStackTrace();
             }
         }
-        List<ImpactChain> imptst = l.getImpactedTests(executableRefsAsPosition);
+        Explorer imptst = l.getImpactedTests(executableRefsAsPosition);
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        Impacts x = new Impacts(imptst);
+        Impacts x = new Impacts(imptst.finishedChains, imptst.redundantChains);;
         System.out.println(gson.toJson(x.toJson(new ToJson() {
             public JsonElement apply(Object x) {
                 if (x instanceof JsonSerializable) {

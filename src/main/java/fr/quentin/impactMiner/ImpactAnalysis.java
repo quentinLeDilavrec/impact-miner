@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -105,13 +107,12 @@ public class ImpactAnalysis {
         return null;
     }
 
-    public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col)
-            throws IOException {
+    public <T> Explorer getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col) throws IOException {
         return getImpactedTests2(col, true);
     }
 
-    public <T> List<ImpactChain> getImpactedTests3(final Collection<ImmutablePair<Object, CtElement>> col,
-            final boolean onTests) throws IOException {
+    public <T> Explorer getImpactedTests3(final Collection<ImmutablePair<Object, CtElement>> col, final boolean onTests)
+            throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final ImmutablePair<Object, CtElement> x : col) {
             final CtElement ele = x.right;
@@ -128,8 +129,8 @@ public class ImpactAnalysis {
         return exploreAST2(chains, onTests);
     }
 
-    public <T> List<ImpactChain> getImpactedTests4(final Collection<ImmutablePair<Object, Object>> col,
-            final boolean onTests) throws IOException {
+    public <T> Explorer getImpactedTests4(final Collection<ImmutablePair<Object, Object>> col, final boolean onTests)
+            throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final ImmutablePair<Object, Object> x : col) {
             final Object impactingThing = x.left;
@@ -159,8 +160,8 @@ public class ImpactAnalysis {
         return exploreAST2(chains, onTests);
     }
 
-    public <T> List<ImpactChain> getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col,
-            final boolean onTests) throws IOException {
+    public <T> Explorer getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col, final boolean onTests)
+            throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final ImmutablePair<Object, Position> x : col) {
             final Object impactingThing = x.left;
@@ -179,7 +180,7 @@ public class ImpactAnalysis {
         return exploreAST2(chains, onTests);
     }
 
-    public <T> List<ImpactChain> getImpactedTests(final Collection<Evolution<T>> x) throws IOException {
+    public <T> Explorer getImpactedTests(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPreEvolutionPositions()) {
@@ -197,7 +198,7 @@ public class ImpactAnalysis {
         return exploreAST2(chains, true);
     }
 
-    public <T> List<ImpactChain> getImpactedTestsPostEvolution(final Collection<Evolution<T>> x) throws IOException {
+    public <T> Explorer getImpactedTestsPostEvolution(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPostEvolutionPositions()) {
@@ -279,11 +280,22 @@ public class ImpactAnalysis {
         }
     }
 
-    private List<ImpactChain> exploreAST2(final Set<ImpactChain> impactChains, final boolean getOnTests)
-            throws IOException {
-        final Explorer explorer = new Explorer(this, impactChains, getOnTests);
+    private Explorer exploreAST2(final Set<ImpactChain> impactChains, final boolean getOnTests) {
+        final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
+
+        while (explorer.process(ImpactType.Level.CALL_GRAPH) != ImpactType.Level.CALL_GRAPH) {
+        }
+        logger.info("Call graph mainly processed");
+        while (explorer.process(ImpactType.Level.CALL_GRAPH) != null) {
+        }
+        return explorer;
+    }
+
+    private Explorer exploreAST2Old(final Set<ImpactChain> impactChains, final boolean getOnTests) {
+        final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
 
         while (!explorer.processedChains.isEmpty()) {
+
             final ImpactChain current = explorer.processedChains.poll();
             final CtElement current_elem = current.getLast().getContent();
             final Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
@@ -328,10 +340,7 @@ public class ImpactAnalysis {
                 explorer.expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem, weight);
             }
         }
-        List<ImpactChain> res = new ArrayList<>();
-        res.addAll(explorer.redundantChains); // at this point can't filter the one that do not impact tests
-        res.addAll(explorer.finishedChains);
-        return res;
+        return explorer;
     }
 
     // private List<ImpactChain<? extends CtElement>> exploreASTDecl(final

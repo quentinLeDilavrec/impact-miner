@@ -1,5 +1,6 @@
 package fr.quentin.impactMiner;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import com.google.gson.JsonArray;
@@ -18,26 +19,43 @@ public class ImpactChain implements JsonSerializable {
     private ImpactElement root;
     private ImpactElement current;
     private Integer size;
-    private String impactType;
+    private ImpactType impactType;
     private Map<String, Object> more;
+
+    public ImpactType getType() {
+        return impactType;
+    }
+
+    public <T> T get(String key) {
+        return (T) more.get(key);
+    }
+
+    public <T> T getMetatdataOrDefault(String key, T deflt) {
+        return (T) more.getOrDefault(key, deflt);
+    }
+
+    public <T> T putMetatdata(String key, T value) {
+        return (T) more.put(key, value);
+    }
 
     public ImpactChain(ImpactElement impactingThing) {
         this.previous = null;
         this.root = impactingThing;
         this.current = impactingThing;
         this.size = 1;
+        this.impactType = null;
     }
 
-    protected ImpactChain(ImpactChain last, ImpactElement content, String impactType) {
+    protected ImpactChain(ImpactChain last, ImpactElement content, ImpactType impactType) {
+        this(last, content, impactType, null);
+    }
+
+    protected ImpactChain(ImpactChain last, ImpactElement content, ImpactType impactType, Map<String, Object> more) {
         this.previous = last;
         this.root = last.getRoot();
         this.current = content;
         this.size = 1 + last.size();
         this.impactType = impactType;
-    }
-
-    protected ImpactChain(ImpactChain last, ImpactElement content, String impactType, Map<String, Object> more) {
-        this(last, content, impactType);
         this.more = more;
     }
 
@@ -49,13 +67,6 @@ public class ImpactChain implements JsonSerializable {
         return size;
     }
 
-    /**
-     * @return the type
-     */
-    public String getType() {
-        return impactType;
-    }
-
     public ImpactElement getLast() {
         return current;
     }
@@ -64,11 +75,11 @@ public class ImpactChain implements JsonSerializable {
         return previous;
     }
 
-    public ImpactChain extend(ImpactElement x, String impactType) {
+    public ImpactChain extend(ImpactElement x, ImpactType impactType) {
         return new ImpactChain(this, x, impactType);
     }
 
-    public ImpactChain extend(ImpactElement x, String impactType, Map<String, Object> more) {
+    public ImpactChain extend(ImpactElement x, ImpactType impactType, Map<String, Object> more) {
         return new ImpactChain(this, x, impactType, more);
     }
 
@@ -89,23 +100,61 @@ public class ImpactChain implements JsonSerializable {
         return a;
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        // TODO use more attributes to be able to analyse (here compare) more complexe
-        // chains
-        if (obj instanceof ImpactChain) {
-            ImpactChain x = (ImpactChain) obj;
-            return x.getRoot().equals(getRoot()) && x.getLast().equals(getLast());
-        }
-        return super.equals(obj);
-    }
+    private int prev_hash;
 
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + getRoot().hashCode();
-        result = prime * result + (getLast().hashCode());
+        result = prime * result
+                + ((previous == null) ? 0 : (prev_hash == 0) ? (prev_hash = previous.hashCode()) : prev_hash);
+        result = prime * result + ((impactType == null) ? 0 : impactType.hashCode());
+        result = prime * result + ((current == null) ? 0 : current.hashCode());
         return result;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        ImpactChain other = (ImpactChain) obj;
+        if (current == null) {
+            if (other.current != null)
+                return false;
+        } else if (!current.equals(other.current))
+            return false;
+        if (impactType != other.impactType)
+            return false;
+        if (previous == null) {
+            if (other.previous != null)
+                return false;
+        } else if (!previous.equals(other.previous))
+            return false;
+        return true;
+    }
+
+    // version ref by head and tail
+    // @Override
+    // public boolean equals(Object obj) {
+    //     // TODO use more attributes to be able to analyse (here compare) more complexe
+    //     // chains
+    //     if (obj instanceof ImpactChain) {
+    //         ImpactChain x = (ImpactChain) obj;
+    //         return x.getRoot().equals(getRoot()) && x.getLast().equals(getLast());
+    //     }
+    //     return super.equals(obj);
+    // }
+
+    // @Override
+    // public int hashCode() {
+    //     final int prime = 31;
+    //     int result = 1;
+    //     result = prime * result + getRoot().hashCode();
+    //     result = prime * result + (getLast().hashCode());
+    //     return result;
+    // }
 }
