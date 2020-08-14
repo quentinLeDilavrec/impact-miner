@@ -246,7 +246,7 @@ public class Explorer {
             callChains.addAll(extendeds);
         } else if (current_elem instanceof CtAbstractInvocation) {
             CtExecutable<?> parentExe = getHigherExecutable(current_elem);
-            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(0));
+            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(weight));
             callChains.add(extended);
             typeChains.add(current);
         } else {
@@ -360,7 +360,7 @@ public class Explorer {
             typeChains.addAll(extendeds);
         } else {
             CtExecutable<?> parentExe = getHigherExecutable(current_elem);
-            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(0));
+            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(weight*2));
             typeChains.add(extended);
             flowChains.add(current);
         }
