@@ -3,6 +3,7 @@ package fr.quentin.impactMiner;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -85,6 +86,16 @@ public class Explorer {
     // protected final HashMap<ImpactElement, Set<ImpactChain>> alreadyMarchedElementToChains = new HashMap<>(); // better to store that in each ele
     protected final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<>(); // idem
     private final boolean getOnTests;
+
+    public List<ImpactChain> getFinishedChains() {
+        return Collections.unmodifiableList(finishedChains);
+    }
+    public List<ImpactChain> getRedundantChains() {
+        return Collections.unmodifiableList(redundantChains);
+    }
+    public List<ImpactChain> getAbortedChains() {
+        return Collections.unmodifiableList(abortedChains);
+    }
 
     private ImpactElement getImpactElement(CtElement next) {
         assert next != null;
