@@ -1,6 +1,6 @@
 package fr.quentin.impactMiner;
 
-enum ImpactType {
+public enum ImpactType {
     TEMPO("temporal"), //
     HIERA("hierarchical", Level.TYPE_GRAPH), //
     STRUC("structural"), //
