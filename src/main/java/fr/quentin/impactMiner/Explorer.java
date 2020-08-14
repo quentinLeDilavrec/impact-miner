@@ -90,9 +90,11 @@ public class Explorer {
     public List<ImpactChain> getFinishedChains() {
         return Collections.unmodifiableList(finishedChains);
     }
+
     public List<ImpactChain> getRedundantChains() {
         return Collections.unmodifiableList(redundantChains);
     }
+
     public List<ImpactChain> getAbortedChains() {
         return Collections.unmodifiableList(abortedChains);
     }
@@ -246,8 +248,11 @@ public class Explorer {
             callChains.addAll(extendeds);
         } else if (current_elem instanceof CtAbstractInvocation) {
             CtExecutable<?> parentExe = getHigherExecutable(current_elem);
-            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(weight));
-            callChains.add(extended);
+            if (parentExe != null) {
+                ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND,
+                        weightedMore(weight));
+                callChains.add(extended);
+            }
             typeChains.add(current);
         } else {
             current.putMD("weight", current.getMD("weight", 1) * 2);
@@ -360,8 +365,11 @@ public class Explorer {
             typeChains.addAll(extendeds);
         } else {
             CtExecutable<?> parentExe = getHigherExecutable(current_elem);
-            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(weight*2));
-            typeChains.add(extended);
+            if (parentExe != null) {
+                ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND,
+                        weightedMore(weight * 2));
+                typeChains.add(extended);
+            }
             flowChains.add(current);
         }
         return ImpactType.Level.TYPE_GRAPH;
