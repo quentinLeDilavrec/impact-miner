@@ -155,7 +155,7 @@ public class Explorer {
             result = element.getParent(CtExecutable.class);
         }
         while (result != null) {
-            CtExecutable<?> tmp = element.getParent(CtExecutable.class);
+            CtExecutable<?> tmp = result.getParent(CtExecutable.class);
             if (tmp == null) {
                 return result;
             }

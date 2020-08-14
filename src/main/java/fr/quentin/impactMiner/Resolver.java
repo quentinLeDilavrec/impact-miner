@@ -85,7 +85,6 @@ public class Resolver {
 
     private void initTypes(final Collection<CtType<?>> allTypes) {
         for (final CtType<?> type : allTypes) {
-            System.out.println(type.getSimpleName());
             Set<CtTypeReference<?>> usedTypes;
             try {
                 usedTypes = type.getUsedTypes(true);
