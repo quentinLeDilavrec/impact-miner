@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -99,18 +100,18 @@ public class Explorer {
      * @return non-Null
      */
     public Collection<ImpactChain> destinationOracle(ImpactChain candidate) {
-        // ImpactElement nextEle = getImpactElement(possibility.next);
-        // final ImpactChain extended = chain.extend(nextEle, possibility.type);
         if (candidate.size() > 100) {
             return abortedChains;
         }
-
-        Integer best_weight_ele = (Integer) candidate.getLast().more.get("best_weight");
-        Integer best_weight_chain = candidate.get("best_weight");
-        if (best_weight_chain < best_weight_ele) {
+        int best_weight_ele = (int) candidate.getLast().getMD(BEST_WEIGHT_CG, 0);
+        int chain_weight = candidate.getMD(WEIGHT, 0);
+        if (chain_weight <= best_weight_ele) {
+            int nb = candidate.getLast().getMD(TESTS_REACHED, 0);
+            if (nb > 0)
+                setPrevsAsImpactingTests(candidate, nb);
             return redundantChains;
         }
-        candidate.getLast().more.put("best_weight", best_weight_chain);
+        candidate.getLast().putMD(BEST_WEIGHT_CG, chain_weight);
         assert candidate.getType() != null;
         switch (candidate.getType().level) {
             case CALL_GRAPH:
@@ -121,7 +122,7 @@ public class Explorer {
                 return flowChains;
             case STRUCT_GRAPH:
                 return structChains;
-            case UNDEFINED:
+            case OTHER:
                 return otherChains;
         }
         return abortedChains;
@@ -152,37 +153,25 @@ public class Explorer {
         return result;
     }
 
-    public ImpactType.Level process(ImpactType.Level max) {
-        ImpactChain tmp = null;
-        tmp = callChains.poll();
-        if (tmp != null) {
-            ImpactChain cont = processCallChain(tmp);
-            typeChains.add(cont);
-            return ImpactType.Level.CALL_GRAPH;
-        }
-        if (max.compareTo(ImpactType.Level.CALL_GRAPH) < 0)
-            return null;
-        tmp = typeChains.poll();
-        if (tmp != null) {
-            return ImpactType.Level.TYPE_GRAPH;
-        }
-        if (max.compareTo(ImpactType.Level.TYPE_GRAPH) < 0)
-            return null;
-        tmp = flowChains.poll();
-        if (tmp != null) {
-            return ImpactType.Level.FLOW_GRAPH;
-        }
-        if (max.compareTo(ImpactType.Level.FLOW_GRAPH) < 0)
-            return null;
-        tmp = structChains.poll();
-        if (tmp != null) {
-            return ImpactType.Level.STRUCT_GRAPH;
-        }
-        if (max.compareTo(ImpactType.Level.STRUCT_GRAPH) < 0)
-            return null;
-        tmp = otherChains.poll();
-        if (tmp != null) {
-            return ImpactType.Level.UNDEFINED;
+    /**
+     * Can potentially be called concurently,
+     * considering that if a thread add an element while other might skip it,
+     * the local thread will always process it
+     * @param level
+     * @return
+     */
+    public ImpactType.Level process(ImpactType.Level level) {
+        switch (level) {
+            case CALL_GRAPH:
+                return processCallChain();
+            case TYPE_GRAPH:
+                return processTypeChain();
+            case FLOW_GRAPH:
+                return processFlowChain();
+            case STRUCT_GRAPH:
+                return processStructChain();
+            case OTHER:
+                return processOtherChain();
         }
         return null;
     }
@@ -195,95 +184,278 @@ public class Explorer {
         }
         return false;
     }
-    // TODO !!!!!!!
-    ImpactChain processCallChain(ImpactChain current) {
-        final CtElement current_elem = current.getLast().getContent();
-        int weight = current.get("weight");
 
-        if (current_elem instanceof CtExecutable) {
-            if (isTest((CtExecutable<?>) current_elem)) {
-                current.apply(x->{
-                    x.put("tests reached",x.getOrDefault());
-                });
-                this.finishedChains.add(current);
+    void setPrevsAsImpactingTests(ImpactChain chain, int qtt) {
+        ImpactChain current = chain;
+        while (current != null) {
+            current.putMD(TESTS_REACHED, current.getMD(TESTS_REACHED, 0) + qtt);
+            for (ImpactChain redundant : current.getLast().getMD("redundant", new HashSet<ImpactChain>())) {
+                setPrevsAsImpactingTests(redundant, qtt);
             }
-            this.followUsage(current, (CtExecutable<?>) current_elem, weight);
-            // TODO override
-            return null;
-        } else if (current_elem instanceof CtAbstractInvocation) {
-            expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem, weight);
-            return current;
-        } else {
-            return current;
+            current = current.getPrevious();
         }
     }
 
-    void processTypeChain(ImpactChain current) {
-        final CtElement current_elem = current.getLast().getContent();
-        int weight = current.get("weight");
+    private static final String WEIGHT = "weight";
+    private static final String TESTS_REACHED = "tests reached";
+    private static final String BEST_WEIGHT_CG = "best weight call graph";
+    private static final String BEST_WEIGHT_TYPE = "best weight type graph";
+    private static final String BEST_WEIGHT_FLOW = "best weight flow graph";
 
+    // TODO !!!!!!!
+    ImpactType.Level processCallChain() {
+        ImpactChain current = callChains.poll();
+        if (current == null) {
+            return ImpactType.Level.TYPE_GRAPH;
+        }
+        if (current.size() > 100) {
+            abortedChains.add(current);
+        }
+        int weight = current.getMD(WEIGHT, 0);
+        if (weight <= 0) {
+            abortedChains.add(current);
+        }
+        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_CG, 0);
+        if (weight <= best_weight_ele) {
+            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            if (nb > 0)
+                setPrevsAsImpactingTests(current, nb);
+            redundantChains.add(current);
+            return ImpactType.Level.CALL_GRAPH;
+        }
+        current.getLast().putMD(BEST_WEIGHT_CG, weight);
+
+        final CtElement current_elem = current.getLast().getContent();
         if (current_elem instanceof CtExecutable) {
             if (isTest((CtExecutable<?>) current_elem)) {
-                this.finishedChains.add(current);
+                setPrevsAsImpactingTests(current, 1);
+                finishedChains.add(current);
+            }
+            Set<ImpactChain> extendeds = followUsage(current, (CtExecutable<?>) current_elem, weight);
+            callChains.addAll(extendeds);
+            return null;
+        } else if (current_elem instanceof CtAbstractInvocation) {
+            CtExecutable<?> parentExe = getHigherExecutable(current_elem);
+            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(0));
+            callChains.add(extended);
+            typeChains.add(current);
+        } else {
+            current.putMD("weight", current.getMD("weight", 1) * 2);
+            typeChains.add(current);
+        }
+        return ImpactType.Level.CALL_GRAPH;
+    }
+
+    ImpactType.Level processTypeChain() {
+        ImpactChain current = typeChains.poll();
+        if (current == null) {
+            return ImpactType.Level.FLOW_GRAPH;
+        }
+        if (current.size() > 100) {
+            abortedChains.add(current);
+        }
+        int weight = current.getMD(WEIGHT, 0);
+        if (weight <= 0) {
+            abortedChains.add(current);
+        }
+        int best_weight_ele = (int) current.getLast()
+                .getMD(BEST_WEIGHT_TYPE + "_" + current.getMD("parameter index", (Integer) null), 0);
+        if (weight < best_weight_ele) {
+            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            if (nb > 0)
+                setPrevsAsImpactingTests(current, nb);
+            redundantChains.add(current);
+            return ImpactType.Level.TYPE_GRAPH;
+        }
+        current.getLast().putMD(BEST_WEIGHT_TYPE + "_" + current.getMD("parameter index", (Integer) null), weight);
+
+        final CtElement current_elem = current.getLast().getContent();
+        if (current_elem instanceof CtExecutable) {
+            if (isTest((CtExecutable<?>) current_elem)) {
+                finishedChains.add(current);
             } else {
-                this.followUsage(current, (CtExecutable<?>) current_elem, weight);
+                Integer i = current.getMD("parameter index");
+                if (i != null) { //
+                    ImpactElement ext_ele = getImpactElement(
+                            ((CtAbstractInvocation<?>) current_elem).getArguments().get(i));
+                    ImpactChain extended = current.extend(ext_ele, ImpactType.PARAMETER,
+                            weightedMore(map("parameter index", i), weight));
+                    typeChains.add(extended);
+                }
+                Set<ImpactChain> extendeds = followUsage(current, (CtExecutable<?>) current_elem, weight);
+                typeChains.addAll(extendeds);
             }
         } else if (current_elem instanceof CtParameter) {
-        } else if (current_elem instanceof CtAbstractInvocation) {
-            this.followValue(current, (CtExpression<?>) current_elem, weight);
+            CtExecutable<?> parentExe = ((CtParameter<?>) current_elem).getParent();
+            Integer i = 0;
+            for (CtParameter<?> param : parentExe.getParameters()) {
+                if (param == current_elem) {
+                    ImpactElement ext_ele = getImpactElement(parentExe);
+                    Set<Integer> more = ext_ele.getMD("parameters", new HashSet<>());
+                    more.add(i);
+                    ext_ele.putMD("parameter", more);
+                    ImpactChain extended = current.extend(ext_ele, ImpactType.PARAMETER,
+                            weightedMore(map("parameter index", i), weight));
+                    typeChains.add(extended);
+                    break;
+                }
+                i++;
+            }
+        } else if (current_elem instanceof CtExpression) {
+            flowChains.add(current);
+            Set<ImpactChain> extendeds = followValue(current, (CtExpression<?>) current_elem, weight);
+            typeChains.addAll(extendeds);
             if (current_elem instanceof CtAbstractInvocation) {
+                Integer i = current.getMD("parameter index");
+                if (i != null) { //
+                    ImpactElement ext_ele = getImpactElement(
+                            ((CtAbstractInvocation<?>) current_elem).getArguments().get(i));
+                    ImpactChain extended = current.extend(ext_ele, ImpactType.PARAMETER,
+                            weightedMore(map("parameter index", i), weight));
+                    typeChains.add(extended);
+                }
                 // argument possible writes
-                this.followValueArguments(current, (CtAbstractInvocation<?>) current_elem, weight);
+                Set<ImpactChain> extendeds2 = followValueArguments(current, (CtAbstractInvocation<?>) current_elem,
+                        weight);
+                typeChains.addAll(extendeds2);
                 // current type
             }
-            // this.followTypes(current, (CtExpression<?>) current_elem); //
+            // followTypes(current, (CtExpression<?>) current_elem); //
             // current type
             // } else if (current_elem instanceof CtStatement) {
         } else if (current_elem instanceof CtVariable) {
-            this.followVariableValueAndUses(current, (CtVariable<?>) current_elem, weight);
-            // this.followTypes(current, (CtLocalVariable) current_elem); //
+            // want to get direct checked usage
+            // storing info to resolve type hierarchy things would be cool
+            // !! An oracle would be good to tell if the targeted type thing changed,
+            // as it might be a co-evolution thus the impact should be propagated further
+            // otherwise it might terminate too early or go over too much unneeded things.
+            Set<ImpactChain> extendeds = followVariableValueAndUses(current, (CtVariable<?>) current_elem, weight);
+            typeChains.addAll(extendeds);
+            // followTypes(current, (CtLocalVariable) current_elem); //
             // current type
             // } else if (current_elem instanceof CtAssignment) { // is an expression
-            // this.followReads(current, (CtAssignment) current_elem);
-            // // this.followTypes(current, (CtAssignment) current_elem); //
+            // followReads(current, (CtAssignment) current_elem);
+            // // followTypes(current, (CtAssignment) current_elem); //
             // // current type
             // } else if (current_elem instanceof CtReturn) {
-            // // this.followTypes(current, ((CtReturn)
+            // // followTypes(current, ((CtReturn)
             // // current_elem).getReturnedExpression()); // current
             // // type
-            // this.followReads(current, (CtExpression<?>) ((CtReturn)
+            // followReads(current, (CtExpression<?>) ((CtReturn)
             // current_elem).getReturnedExpression(),
             //);
-            // this.expand3(current, current_elem); // returns
+            // expand3(current, current_elem); // returns
         } else if (current_elem instanceof CtType) {
-            this.followUses(current, (CtType<?>) current_elem, weight);
+            Set<ImpactChain> extendeds = followUses(current, (CtType<?>) current_elem, weight);
+            typeChains.addAll(extendeds);
         } else {
-            this.expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem, weight);
+            CtExecutable<?> parentExe = getHigherExecutable(current_elem);
+            ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(0));
+            typeChains.add(extended);
+            flowChains.add(current);
         }
+        return ImpactType.Level.TYPE_GRAPH;
     }
 
-    // private Integer putIfNotRedundant(final ImpactChain chain, final Integer weight) {
-    //     final Integer existing_weight = alreadyMarchedChains.get(chain);
-    //     if (existing_weight == null) {
-    //         processedChains.add(chain);
-    //         alreadyMarchedChains.put(chain, weight);
-    //     } else if (weight > existing_weight) {
-    //         redundantChains.add(chain);
-    //     } else {
-    //         redundantChains.add(chain);
-    //     }
-    //     return weight;
-    // }
+    ImpactType.Level processFlowChain() {
+        ImpactChain current = flowChains.poll();
+        if (current == null) {
+            return ImpactType.Level.STRUCT_GRAPH;
+        }
+        if (current.size() > 100) {
+            abortedChains.add(current);
+        }
+        int weight = current.getMD(WEIGHT, 0);
+        if (weight <= 0) {
+            abortedChains.add(current);
+        }
+        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_FLOW, 0);
+        if (weight <= best_weight_ele) {
+            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            if (nb > 0)
+                setPrevsAsImpactingTests(current, nb);
+            redundantChains.add(current);
+            return ImpactType.Level.CALL_GRAPH;
+        }
+        current.getLast().putMD(BEST_WEIGHT_FLOW, weight);
+
+        final CtElement current_elem = current.getLast().getContent();
+
+        // TODO !!!!! implem
+
+        structChains.add(current);
+        return ImpactType.Level.FLOW_GRAPH;
+    }
+
+    ImpactType.Level processStructChain() {
+        ImpactChain current = structChains.poll();
+        if (current == null) {
+            return ImpactType.Level.OTHER;
+        }
+        if (current.size() > 100) {
+            abortedChains.add(current);
+        }
+        int weight = current.getMD(WEIGHT, 0);
+        if (weight <= 0) {
+            abortedChains.add(current);
+        }
+        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_CG, 0);
+        if (weight <= best_weight_ele) {
+            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            if (nb > 0)
+                setPrevsAsImpactingTests(current, nb);
+            redundantChains.add(current);
+            return ImpactType.Level.CALL_GRAPH;
+        }
+        current.getLast().putMD(BEST_WEIGHT_CG, weight);
+
+        final CtElement current_elem = current.getLast().getContent();
+
+        // TODO !!!!! implem
+
+        structChains.add(current);
+        return ImpactType.Level.STRUCT_GRAPH;
+    }
+
+    ImpactType.Level processOtherChain() {
+        ImpactChain current = otherChains.poll();
+        if (current == null) {
+            return null;
+        }
+        if (current.size() > 100) {
+            abortedChains.add(current);
+        }
+        int weight = current.getMD(WEIGHT, 0);
+        if (weight <= 0) {
+            abortedChains.add(current);
+        }
+        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_CG, 0);
+        if (weight <= best_weight_ele) {
+            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            if (nb > 0)
+                setPrevsAsImpactingTests(current, nb);
+            redundantChains.add(current);
+            return ImpactType.Level.CALL_GRAPH;
+        }
+        current.getLast().putMD(BEST_WEIGHT_CG, weight);
+
+        final CtElement current_elem = current.getLast().getContent();
+
+        // TODO !!!!! implem
+
+        structChains.add(current);
+        return ImpactType.Level.OTHER;
+    }
 
     int startingOracle(ImpactChain chain) {
-        return chain.getMetatdataOrDefault("weight", 1);
+        return chain.getMD(WEIGHT, 1);
     }
 
     public Explorer(ImpactAnalysis impactAnalysis, final Set<ImpactChain> impactChains, final int defaultWeight,
             final boolean getOnTests) {
         this.impactAnalysis = impactAnalysis;
         for (ImpactChain impactChain : impactChains) {
-            impactChain.putMetatdata("weight", startingOracle(impactChain) * defaultWeight);
+            impactChain.putMD(WEIGHT, startingOracle(impactChain) + defaultWeight);
         }
         callChains.addAll(impactChains);
         this.getOnTests = getOnTests;
@@ -297,23 +469,33 @@ public class Explorer {
         }
     }
 
-    public <T> void followUsage(final ImpactChain current, final CtExecutable<T> current_elem, final Integer weight) {
+    /**
+     * Folllow usage of an executable (ref, override, overrided)
+     * @param <T>
+     * @param current chain
+     * @param current_elem spoon element
+     * @param weight
+     */
+    public <T> Set<ImpactChain> followUsage(final ImpactChain current, final CtExecutable<T> current_elem,
+            final Integer weight) {
+        Set<ImpactChain> result = new HashSet<>();
         Set<CtAbstractInvocation<T>> z = this.impactAnalysis.resolver.references(current_elem);
         for (final CtAbstractInvocation<T> invocation : z) {
             if (!invocation.getPosition().isValidPosition())
                 continue;
-            proposeCommit(current.extend(getImpactElement(invocation), ImpactType.CALL, weightedMore(weight - 1)));
+            result.add(current.extend(getImpactElement(invocation), ImpactType.CALL, weightedMore(weight - 1)));
         }
         CtExecutable<?> override = this.impactAnalysis.resolver.override(current_elem);
         if (override != null && override.getPosition().isValidPosition()) {
-            proposeCommit(current.extend(getImpactElement(override), ImpactType.OVERRIDING, weightedMore(weight - 1)));
+            result.add(current.extend(getImpactElement(override), ImpactType.OVERRIDING, weightedMore(weight - 1)));
         }
         Set<CtExecutable<?>> overrides = this.impactAnalysis.resolver.overrides(current_elem);
         for (CtExecutable<?> overri : overrides) {
             if (overri.getPosition().isValidPosition()) {
-                proposeCommit(current.extend(getImpactElement(overri), ImpactType.OVERRIDED, weightedMore(weight - 1)));
+                result.add(current.extend(getImpactElement(overri), ImpactType.OVERRIDED, weightedMore(weight - 1)));
             }
         }
+        return result;
     }
 
     /**
@@ -326,8 +508,9 @@ public class Explorer {
      * @param weight
      * @throws IOException
      */
-    public <T> void followValueArguments(final ImpactChain current, final CtAbstractInvocation<T> current_elem,
-            final Integer weight) {
+    public <T> Set<ImpactChain> followValueArguments(final ImpactChain current,
+            final CtAbstractInvocation<T> current_elem, final Integer weight) {
+        Set<ImpactChain> result = new HashSet<>();
         final List<CtExpression<?>> arguments = ((CtAbstractInvocation<?>) current_elem).getArguments();
         int current_argument_index = 0;
         for (final CtExpression<?> argument : arguments) {
@@ -336,14 +519,16 @@ public class Explorer {
             final Map<String, Object> more = new HashMap<>();
             if (!argument.getType().isPrimitive()) {
                 more.put("index", current_argument_index);
-                followExprFromArgument(current, argument, more, weight);
+                result.addAll(followExprFromArgument(current, argument, more, weight));
             }
             current_argument_index++;
         }
+        return result;
     }
 
-    private void followExprFromArgument(final ImpactChain current, final CtExpression<?> expr,
+    private Set<ImpactChain> followExprFromArgument(final ImpactChain current, final CtExpression<?> expr,
             final Map<String, Object> more, final Integer weight) {
+        Set<ImpactChain> result = new HashSet<>();
         if (expr instanceof CtAbstractInvocation) {
             final ImpactChain extended = current.extend(getImpactElement(expr), ImpactType.ARGUMENT, more);
             // putIfNotRedundant(extended, weight - 1); // I don't think it's a good idea to
@@ -353,7 +538,7 @@ public class Explorer {
             for (CtExpression<?> arg : ((CtAbstractInvocation<?>) expr).getArguments()) {
                 final Map<String, Object> more2 = new HashMap<>();
                 more2.put("index", current_argument_index);
-                followExprFromArgument(extended, arg, more2, weight - 1);
+                result.addAll(followExprFromArgument(extended, arg, more2, weight - 1));
                 current_argument_index++;
             }
             // } else if (expr instanceof CtSuperAccess) { // should allow more precise
@@ -374,13 +559,13 @@ public class Explorer {
                     Integer weight2 = weight - 1;
                     for (CtVariableAccess<?> access : this.impactAnalysis.resolver.references((CtField<?>) fieldDecl)) {
                         if (top.hasParent(access)) {
-                            proposeCommit(extended.extend(getImpactElement(access), ImpactType.VALUE,
+                            result.add(extended.extend(getImpactElement(access), ImpactType.VALUE,
                                     weightedMore(weight2 - 1)));
                         }
                         if (implems != null) {
                             for (CtType<?> implem : implems) {
                                 if (implem.hasParent(access)) {
-                                    proposeCommit(extended.extend(getImpactElement(access), ImpactType.VALUE,
+                                    result.add(extended.extend(getImpactElement(access), ImpactType.VALUE,
                                             weightedMore(weight2 - 1)));
                                 }
                             }
@@ -395,11 +580,11 @@ public class Explorer {
             }
         } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
                 && ((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class")) {
-            return;
+            return result;
         } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
                 && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration() != null
                 && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal()) {
-            return;
+            return result;
         } else if (expr instanceof CtTypeAccess && expr.getParent(CtType.class)
                 .equals(((CtTypeAccess<?>) expr).getAccessedType().getTypeDeclaration())) {
             CtTypeAccess<?> thisAccess = (CtTypeAccess<?>) expr;
@@ -413,13 +598,13 @@ public class Explorer {
                 Integer weight2 = weight - 1;
                 for (CtVariableAccess<?> access : this.impactAnalysis.resolver.references((CtField<?>) fieldDecl)) {
                     if (top.hasParent(access)) {
-                        proposeCommit(
+                        result.add(
                                 extended.extend(getImpactElement(access), ImpactType.VALUE, weightedMore(weight2 - 1)));
                     }
                     if (implems != null) {
                         for (CtType<?> implem : implems) {
                             if (implem.hasParent(access)) {
-                                proposeCommit(extended.extend(getImpactElement(access), ImpactType.VALUE,
+                                result.add(extended.extend(getImpactElement(access), ImpactType.VALUE,
                                         weightedMore(weight - 1)));
                             }
                         }
@@ -433,31 +618,32 @@ public class Explorer {
             }
         } else if (expr instanceof CtTargetedExpression) { // big approx
             CtTargetedExpression<?, ?> targeted = (CtTargetedExpression<?, ?>) expr;
-            followExprFromArgument(current, targeted.getTarget(), more, weight - 1);
+            result.addAll(followExprFromArgument(current, targeted.getTarget(), more, weight - 1));
         } else if (expr instanceof CtVariableAccess) {
             CtVariable<?> x = this.impactAnalysis.resolver.reference((CtVariableAccess<?>) expr);
             if (x != null) {
-                proposeCommit(current.extend(getImpactElement(x), ImpactType.ACCESS, weightedMore(more, weight - 1)));
+                result.add(current.extend(getImpactElement(x), ImpactType.ACCESS, weightedMore(more, weight - 1)));
             }
         } else if (expr instanceof CtAssignment) {
             CtAssignment<?, ?> assign = (CtAssignment<?, ?>) expr;
-            followExprFromArgument(current, assign.getAssigned(), more, weight - 1);
+            result.addAll(followExprFromArgument(current, assign.getAssigned(), more, weight - 1));
         } else if (expr instanceof CtConditional) {
             CtConditional<?> cond = (CtConditional<?>) expr;
-            followExprFromArgument(current, cond.getThenExpression(), more, weight - 1);
-            followExprFromArgument(current, cond.getElseExpression(), more, weight - 1);
+            result.addAll(followExprFromArgument(current, cond.getThenExpression(), more, weight - 1));
+            result.addAll(followExprFromArgument(current, cond.getElseExpression(), more, weight - 1));
         } else if (expr instanceof CtBinaryOperator) {
             CtBinaryOperator<?> op = (CtBinaryOperator<?>) expr;
-            followExprFromArgument(current, op.getLeftHandOperand(), more, weight - 1);
-            followExprFromArgument(current, op.getRightHandOperand(), more, weight - 1);
+            result.addAll(followExprFromArgument(current, op.getLeftHandOperand(), more, weight - 1));
+            result.addAll(followExprFromArgument(current, op.getRightHandOperand(), more, weight - 1));
         } else if (expr instanceof CtUnaryOperator) {
             CtUnaryOperator<?> op = (CtUnaryOperator<?>) expr;
-            followExprFromArgument(current, op.getOperand(), more, weight - 1);
+            result.addAll(followExprFromArgument(current, op.getOperand(), more, weight - 1));
         } else if (expr instanceof CtLiteral) {
-            return;
+            return result;
         } else {
             assert false : expr;
         }
+        return result;
     }
 
     private CtVariableAccess<?> unnest(CtExpression<?> expr) {
@@ -490,17 +676,18 @@ public class Explorer {
     }
 
     Map<String, Object> weightedMore(int weight) {
-        return map("weight", weight);
+        return map(WEIGHT, weight);
     }
 
     Map<String, Object> weightedMore(Map<String, Object> old, int weight) {
         Map<String, Object> result = new HashMap<>(old);
-        result.put("weight", weight);
+        result.put(WEIGHT, weight);
         return result;
     }
 
-    public void followValue(final ImpactChain current, final CtExpression<?> current_elem, final Integer weight)
-         {
+    public Set<ImpactChain> followValue(final ImpactChain current, final CtExpression<?> current_elem,
+            final Integer weight) {
+        Set<ImpactChain> result = new HashSet<>();
         try {
             // if (current_elem instanceof CtTargetedExpression) {
             // CtVariable<?> variable = solveTargeted((CtTargetedExpression<?,?>)
@@ -519,18 +706,18 @@ public class Explorer {
                 try {
                     CtExecutable<?> parent2 = parent.getParent(CtExecutable.class);
                     if (parent2 != null) {
-                        proposeCommit(
+                        result.add(
                                 current.extend(getImpactElement(parent2), ImpactType.RETURN, weightedMore(weight - 1)));
                     }
                 } catch (final ParentNotInitializedException e) {
                     ImpactAnalysis.logger.log(Level.WARNING, "parentNotInitializedException", e);
                 }
             } else if (parent instanceof CtVariable && roleInParent.equals(CtRole.DEFAULT_EXPRESSION)) {
-                proposeCommit(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 1)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 1)));
             } else if (parent instanceof CtAbstractInvocation && roleInParent.equals(CtRole.ARGUMENT)) {
-                proposeCommit(current.extend(getImpactElement(parent), ImpactType.ACCESS, weightedMore(weight - 1)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.ACCESS, weightedMore(weight - 1)));
             } else if (parent instanceof CtAbstractInvocation && roleInParent.equals(CtRole.TARGET)) {
-                proposeCommit(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 1)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 1)));
             } else if (parent instanceof CtAssignment && roleInParent.equals(CtRole.ASSIGNMENT)) {
                 CtAssignment<?, ?> assignment = (CtAssignment<?, ?>) parent;
                 CtExpression<?> assignedExpr = assignment.getAssigned();
@@ -546,20 +733,20 @@ public class Explorer {
                             CtVariable<?> fieldDecl = this.impactAnalysis.resolver
                                     .reference((CtFieldAccess<?>) thisAccessParent);
                             if (fieldDecl != null) {
-                                final ImpactChain extended = proposeCommit(current.extend(getImpactElement(fieldDecl),
-                                        ImpactType.VALUE, weightedMore(weight - 1)));
-                                Integer weight2 = extended.get("weight");
+                                final ImpactChain extended = current.extend(getImpactElement(fieldDecl),
+                                        ImpactType.VALUE, weightedMore(weight - 1));
+                                result.add(extended);
+                                Integer weight2 = extended.getMD(WEIGHT);
                                 for (CtVariableAccess<?> access : this.impactAnalysis.resolver
                                         .references((CtField<?>) fieldDecl)) {
                                     if (top.hasParent(access)) {
-                                        final ImpactChain extended2 = proposeCommit(current.extend(
-                                                getImpactElement(access), ImpactType.VALUE, weightedMore(weight2 - 1)));
+                                        result.add(current.extend(getImpactElement(access), ImpactType.VALUE,
+                                                weightedMore(weight2 - 1)));
                                     }
                                     for (CtType<?> implem : implems) {
                                         if (implem.hasParent(access)) {
-                                            final ImpactChain extended2 = proposeCommit(
-                                                    extended.extend(getImpactElement(access), ImpactType.VALUE,
-                                                            weightedMore(weight - 1)));
+                                            result.add(extended.extend(getImpactElement(access), ImpactType.VALUE,
+                                                    weightedMore(weight - 1)));
                                         }
                                     }
                                 }
@@ -572,9 +759,8 @@ public class Explorer {
                     } else if (unnested instanceof CtTypeAccess) {
                         assert false : unnested;
                     } else {
-                        final ImpactChain extended = proposeCommit(
-                                current.extend(getImpactElement(this.impactAnalysis.resolver.reference(unnested)),
-                                        ImpactType.VALUE, weightedMore(weight - 1)));
+                        result.add(current.extend(getImpactElement(this.impactAnalysis.resolver.reference(unnested)),
+                                ImpactType.VALUE, weightedMore(weight - 1)));
                     }
                 }
                 // } else if (parent instanceof CtBinaryOperator) {
@@ -591,38 +777,38 @@ public class Explorer {
             } else if (parent instanceof CtBlock) {
                 // return;
             } else if (parent instanceof CtIf && roleInParent.equals(CtRole.CONDITION)) {
-                proposeCommit(current.extend(getImpactElement(((CtIf) parent)), ImpactType.CONDITION,
+                result.add(current.extend(getImpactElement(((CtIf) parent)), ImpactType.CONDITION,
                         weightedMore(weight - 5)));
-                return;
+                return result;
             } else if (parent instanceof CtIf && roleInParent.equals(CtRole.THEN)) {
-                proposeCommit(
+                result.add(
                         current.extend(getImpactElement(((CtIf) parent)), ImpactType.THEN, weightedMore(weight - 5)));
-                return;
+                return result;
             } else if (parent instanceof CtIf && roleInParent.equals(CtRole.ELSE)) {
-                proposeCommit(
+                result.add(
                         current.extend(getImpactElement(((CtIf) parent)), ImpactType.ELSE, weightedMore(weight - 5)));
-                return;
+                return result;
             } else if (parent instanceof CtLoop && roleInParent.equals(CtRole.BODY)) {
-                proposeCommit(
+                result.add(
                         current.extend(getImpactElement(((CtLoop) parent)), ImpactType.THEN, weightedMore(weight - 5)));
-                return;
+                return result;
             } else if (parent instanceof CtForEach && roleInParent.equals(CtRole.EXPRESSION)) {
-                proposeCommit(current.extend(getImpactElement(((CtForEach) parent).getVariable()), ImpactType.VALUE,
+                result.add(current.extend(getImpactElement(((CtForEach) parent).getVariable()), ImpactType.VALUE,
                         weightedMore(weight - 1)));
-                return;
+                return result;
             } else if (parent instanceof CtFor && roleInParent.equals(CtRole.EXPRESSION)) {
-                proposeCommit(current.extend(getImpactElement(((CtFor) parent)), ImpactType.CONDITION,
+                result.add(current.extend(getImpactElement(((CtFor) parent)), ImpactType.CONDITION,
                         weightedMore(weight - 1)));
-                return;
+                return result;
             } else if (parent instanceof CtFor && roleInParent.equals(CtRole.FOR_INIT)) {
             } else if (parent instanceof CtFor && roleInParent.equals(CtRole.FOR_UPDATE)) {
-                proposeCommit(
+                result.add(
                         current.extend(getImpactElement(((CtFor) parent)), ImpactType.VALUE, weightedMore(weight - 1)));
-                return;
+                return result;
             } else if (parent instanceof CtThrow) { // TODO implement something to follow value in catch clause
-                proposeCommit(current.extend(getImpactElement(((CtThrow) parent)), ImpactType.THROW,
+                result.add(current.extend(getImpactElement(((CtThrow) parent)), ImpactType.THROW,
                         weightedMore(weight - 1)));
-                return;
+                return result;
             } else if (parent instanceof CtBinaryOperator) {
             } else if (parent instanceof CtFieldRead) { // TODO confirm doing nothing
             } else if (parent instanceof CtUnaryOperator) {
@@ -647,13 +833,14 @@ public class Explorer {
             } else {
                 CtElement parentAlt = current_elem.getParent(CtExecutable.class);
                 if (parentAlt != null) {
-                    proposeCommit(current.extend(getImpactElement((parentAlt)), ImpactType.EXPAND,
+                    result.add(current.extend(getImpactElement((parentAlt)), ImpactType.EXPAND,
                             weightedMore(weight - 10)));
                 }
             }
         } catch (final ParentNotInitializedException e) {
             ImpactAnalysis.logger.log(Level.WARNING, "parentNotInitializedException", e);
         }
+        return result;
     }
 
     private Filter<CtCodeElement> scopeFilter = new Filter<CtCodeElement>() {
@@ -710,8 +897,8 @@ public class Explorer {
         // TODO how should @override or abstract be handled (virtual call)
     }
 
-    public void followUses(final ImpactChain current, final CtType<?> current_elem, final Integer weight)
-         {
+    public Set<ImpactChain> followUses(final ImpactChain current, final CtType<?> current_elem, final Integer weight) {
+        Set<ImpactChain> result = new HashSet<>();
         Set<CtType<?>> superClasses = this.impactAnalysis.resolver.referencesSuperClass(current_elem);
         Set<CtType<?>> superInterfaces = this.impactAnalysis.resolver.referencesSuperInterface(current_elem);
         Set<CtTypedElement<?>> allUses = this.impactAnalysis.resolver.references(current_elem);
@@ -719,19 +906,20 @@ public class Explorer {
         for (final CtType<?> type : superClasses) {
             if (!type.getPosition().isValidPosition())
                 continue;
-            proposeCommit(current.extend(getImpactElement(type), ImpactType.EXTEND, weightedMore(weight - 1)));
+            result.add(current.extend(getImpactElement(type), ImpactType.EXTEND, weightedMore(weight - 1)));
         }
         for (final CtType<?> type : superInterfaces) {
             if (!type.getPosition().isValidPosition())
                 continue;
-            proposeCommit(current.extend(getImpactElement(type), ImpactType.IMPLEMENT, weightedMore(weight - 1)));
+            result.add(current.extend(getImpactElement(type), ImpactType.IMPLEMENT, weightedMore(weight - 1)));
 
         }
         for (final CtTypedElement<?> type : allUses) {
             if (!type.getPosition().isValidPosition())
                 continue;
-            proposeCommit(current.extend(getImpactElement(type), ImpactType.TYPE, weightedMore(weight - 1)));
+            result.add(current.extend(getImpactElement(type), ImpactType.TYPE, weightedMore(weight - 1)));
         }
+        return result;
     }
 
     // public void followTypes(final ImpactChain current, final CtTypedElement
@@ -815,8 +1003,9 @@ public class Explorer {
     // {
     // }
 
-    public <T> void followVariableValueAndUses(final ImpactChain current, final CtVariable<T> current_elem,
+    public <T> Set<ImpactChain> followVariableValueAndUses(final ImpactChain current, final CtVariable<T> current_elem,
             final Integer weight) {
+        Set<ImpactChain> result = new HashSet<>();
         // if (current_elem instanceof CtLocalVariable) {
         // final CtLocalVariable<?> tmp = (CtLocalVariable<?>) current_elem;
         // final CtExecutable<?> enclosingScope = tmp.getParent(CtExecutable.class);
@@ -844,8 +1033,9 @@ public class Explorer {
             if (!x.getPosition().isValidPosition())
                 continue;
             if (x instanceof CtVariableRead) {
-                proposeCommit(current.extend(getImpactElement(x), ImpactType.READ, weightedMore(weight - 1)));
+                result.add(current.extend(getImpactElement(x), ImpactType.READ, weightedMore(weight - 1)));
             }
         }
+        return result;
     }
 }

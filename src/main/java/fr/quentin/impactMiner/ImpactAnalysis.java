@@ -14,6 +14,7 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import fr.quentin.impactMiner.ImpactType.Level;
 import spoon.MavenLauncher;
 import spoon.reflect.CtModel;
 import spoon.reflect.code.CtAbstractInvocation;
@@ -281,13 +282,19 @@ public class ImpactAnalysis {
     }
 
     private Explorer exploreAST2(final Set<ImpactChain> impactChains, final boolean getOnTests) {
-        final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
+        long start = System.nanoTime();
 
-        while (explorer.process(ImpactType.Level.CALL_GRAPH) != ImpactType.Level.CALL_GRAPH) {
+        final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
+        Level current = ImpactType.Level.CALL_GRAPH;
+        while (current.compareTo(ImpactType.Level.CALL_GRAPH) <= 0) {
+            current = explorer.process(current);
         }
-        logger.info("Call graph mainly processed");
-        while (explorer.process(ImpactType.Level.CALL_GRAPH) != null) {
+        logger.info("Call graph mainly processed in " + (System.nanoTime() - start) / 1000000 + " s");
+        while (current != null) {
+            current = explorer.process(current);
         }
+        // TODO if using multi-threading think about synchonizing prior to returning the result
+        logger.info("All graphs processed in " + (System.nanoTime() - start) / 1000000 + " s");
         return explorer;
     }
 

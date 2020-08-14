@@ -2,6 +2,7 @@ package fr.quentin.impactMiner;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -26,15 +27,15 @@ public class ImpactChain implements JsonSerializable {
         return impactType;
     }
 
-    public <T> T get(String key) {
+    public <T> T getMD(String key) {
         return (T) more.get(key);
     }
 
-    public <T> T getMetatdataOrDefault(String key, T deflt) {
+    public <T> T getMD(String key, T deflt) {
         return (T) more.getOrDefault(key, deflt);
     }
 
-    public <T> T putMetatdata(String key, T value) {
+    public <T> T putMD(String key, T value) {
         return (T) more.put(key, value);
     }
 
@@ -44,10 +45,11 @@ public class ImpactChain implements JsonSerializable {
         this.current = impactingThing;
         this.size = 1;
         this.impactType = null;
+        this.more = new HashMap<>();
     }
 
     protected ImpactChain(ImpactChain last, ImpactElement content, ImpactType impactType) {
-        this(last, content, impactType, null);
+        this(last, content, impactType, new HashMap<>());
     }
 
     protected ImpactChain(ImpactChain last, ImpactElement content, ImpactType impactType, Map<String, Object> more) {

@@ -18,7 +18,7 @@ import spoon.reflect.declaration.CtElement;
 public class ImpactElement {
     private Position position;
     private final CtElement content;
-    final Map<String, Object> more = new HashMap<>();
+    private final Map<String, Object> more = new HashMap<>();
     private final Map<Object, Position> evolutions = new HashMap<>();
 
     /**
@@ -26,6 +26,18 @@ public class ImpactElement {
      */
     public Map<Object, Position> getEvolutionWithNonCorrectedPosition() {
         return evolutions;
+    }
+
+    public <T> T getMD(String key) {
+        return (T) more.get(key);
+    }
+
+    public <T> T getMD(String key, T deflt) {
+        return (T) more.getOrDefault(key, deflt);
+    }
+
+    public <T> T putMD(String key, T value) {
+        return (T) more.put(key, value);
     }
 
     public ImpactElement(CtElement e) {

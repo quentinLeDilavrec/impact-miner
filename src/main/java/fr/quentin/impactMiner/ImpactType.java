@@ -36,7 +36,7 @@ enum ImpactType {
      * UNDEFINED ⊃ STRUCT_GRAPH ⊃ FLOW_GRAPH ⊃ TYPE_GRAPH ⊃ CALL_GRAPH
      */
     enum Level {
-        UNDEFINED, // Ω
+        OTHER, // Ω
         STRUCT_GRAPH, //
         FLOW_GRAPH, //
         TYPE_GRAPH, //
@@ -49,7 +49,7 @@ enum ImpactType {
     final Level level;
 
     ImpactType(String displayName, ImpactType... parents) {
-        this(displayName, Level.UNDEFINED, parents);
+        this(displayName, Level.OTHER, parents);
     }
 
     ImpactType(String displayName, Level level, ImpactType... parents) {
