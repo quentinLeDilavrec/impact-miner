@@ -244,7 +244,6 @@ public class Explorer {
             }
             Set<ImpactChain> extendeds = followUsage(current, (CtExecutable<?>) current_elem, weight);
             callChains.addAll(extendeds);
-            return ImpactType.Level.CALL_GRAPH;
         } else if (current_elem instanceof CtAbstractInvocation) {
             CtExecutable<?> parentExe = getHigherExecutable(current_elem);
             ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND, weightedMore(0));
