@@ -286,7 +286,7 @@ public class ImpactAnalysis {
 
         final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
         Level current = ImpactType.Level.CALL_GRAPH;
-        while (current.compareTo(ImpactType.Level.CALL_GRAPH) <= 0) {
+        while (current!=null && ImpactType.Level.CALL_GRAPH.compareTo(current) >= 0) {
             current = explorer.process(current);
         }
         logger.info("Call graph mainly processed in " + (System.nanoTime() - start) / 1000000 + " s");
