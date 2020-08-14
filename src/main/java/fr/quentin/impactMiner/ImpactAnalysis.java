@@ -85,7 +85,9 @@ public class ImpactAnalysis {
             throw new ImpactAnalysisException("model is null");
         }
         Collection<CtType<?>> allTypes = model.getAllTypes();
+        logger.info("initializing resolver");
         this.resolver = new Resolver(allTypes);
+        logger.info("done initializing resolver");
     }
 
     public static Boolean isTest(final CtExecutable<?> y) {
@@ -283,8 +285,8 @@ public class ImpactAnalysis {
 
     private Explorer exploreAST2(final Set<ImpactChain> impactChains, final boolean getOnTests) {
         long start = System.nanoTime();
-
         final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
+        logger.info("starting to explore impacts");
         Level current = ImpactType.Level.CALL_GRAPH;
         while (current!=null && ImpactType.Level.CALL_GRAPH.compareTo(current) >= 0) {
             current = explorer.process(current);
