@@ -292,7 +292,7 @@ public class Explorer {
                 Integer i = current.getMD("parameter index");
                 if (i != null) { //
                     ImpactElement ext_ele = getImpactElement(
-                            ((CtAbstractInvocation<?>) current_elem).getArguments().get(i));
+                            ((CtExecutable<?>) current_elem).getParameters().get(i));
                     ImpactChain extended = current.extend(ext_ele, ImpactType.PARAMETER,
                             weightedMore(map("parameter index", i), weight));
                     typeChains.add(extended);
