@@ -160,7 +160,7 @@ public class Impacts implements JsonSerializable {
             tmp.addCause(prev.getLast(), si.getType());
             if (!already) {
                 addCause(prev, curr, si.getType());
-                curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
+                curr_roots.addAll(prev.getLast().getMD(ROOTS, new HashSet<ImpactElement>()));
             }
         } else {
             curr_roots.add(curr);
