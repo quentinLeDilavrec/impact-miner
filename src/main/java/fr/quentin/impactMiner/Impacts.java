@@ -151,24 +151,20 @@ public class Impacts implements JsonSerializable {
         if (tmp == null) {
             tmp = new Relations(curr, si.size());
             dag.put(curr, tmp);
-            if (prevCurr != null)// && prevType!=null
-                tmp.addEffect(prevCurr, prevType);
-            if (prev != null) {
-                tmp.addCause(prev.getLast(), si.getType());
-                addCause(prev, curr, si.getType());
-                curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
-            }
-            for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
-                verticesPerRoots.putIfAbsent(redundant.getRoot(), new HashMap<>()); // caution, also need to add ele already visited
-                addCause(redundant, prevCurr, prevType);
-            }
-        } else {
-            if (prevCurr != null)// && prevType!=null
-                tmp.addEffect(prevCurr, prevType);
-            if (prev != null) {
-                tmp.addCause(prev.getLast(), si.getType());
-                curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
-            }
+        }
+        if (prevCurr != null)// && prevType!=null
+            tmp.addEffect(prevCurr, prevType);
+        if (prev != null) {
+            tmp.addCause(prev.getLast(), si.getType());
+            addCause(prev, curr, si.getType());
+            curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
+        }else {
+            curr_roots.add(curr);
+        }
+        for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
+            verticesPerRoots.putIfAbsent(redundant.getRoot(), new HashMap<>()); // caution, also need to add ele already visited
+            roots.add(si.getRoot());
+            addCause(redundant, prevCurr, prevType);
         }
     }
 
