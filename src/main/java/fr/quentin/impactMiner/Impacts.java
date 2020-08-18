@@ -119,55 +119,49 @@ public class Impacts implements JsonSerializable {
     private Map<ImpactElement, Set<Object>> tests;
     private Set<ImpactElement> roots;
 
-    public Impacts(Collection<ImpactChain> finishedChains, Collection<ImpactChain> redundantChains) {
+    public Impacts(Collection<ImpactChain> finishedChains) {
         this.verticesPerRoots = new HashMap<>();
         this.verticesPerTests = new HashMap<>();
         this.tests = new HashMap<>();
         this.roots = new HashSet<>();
-        HashSet<?> redundantLasts = new HashSet<>();
         for (ImpactChain si : finishedChains) {
             verticesPerRoots.putIfAbsent(si.getRoot(), new HashMap<>());
-            verticesPerTests.putIfAbsent(si.getLast(), new HashMap<>());
-            if (si.getLast().getContent() instanceof CtExecutable<?>
-                    && ImpactAnalysis.isTest((CtExecutable<?>) si.getLast().getContent())) {
-                tests.putIfAbsent(si.getLast(), new HashSet<>());
-                tests.get(si.getLast()).addAll(si.getRoot().getEvolutions());
-            }
+            ImpactElement last = si.getLast();
+            verticesPerTests.putIfAbsent(last, new HashMap<>());
             roots.add(si.getRoot());
             addCause(si, null, null);
-            addCauseBis(si);
-        }
-        for (ImpactChain si : redundantChains) {
-            verticesPerRoots.putIfAbsent(si.getRoot(), new HashMap<>());
-            verticesPerTests.putIfAbsent(si.getLast(), new HashMap<>());
-            if (si.getLast().getContent() instanceof CtExecutable<?>
-                    && ImpactAnalysis.isTest((CtExecutable<?>) si.getLast().getContent())) {
-                tests.putIfAbsent(si.getLast(), new HashSet<>());
-                tests.get(si.getLast()).addAll(si.getRoot().getEvolutions());
+            // addCauseBis(si);
+            if (last.getContent() instanceof CtExecutable<?>
+                    && ImpactAnalysis.isTest((CtExecutable<?>) last.getContent())) {
+                tests.putIfAbsent(last, new HashSet<>());
+                for (ImpactElement root : last.getMD(ROOTS,new HashSet<ImpactElement>())) {
+                    tests.get(last).addAll(root.getEvolutions());
+                }
             }
-            roots.add(si.getRoot());
-            addCause(si, null, null);
-            addCauseBis(si);
         }
     }
 
     private void addCause(ImpactChain si, ImpactElement prevCurr, ImpactType prevType) {
         Map<ImpactElement, Relations> dag = verticesPerRoots.get(si.getRoot());
         ImpactElement curr = si.getLast();
-
+        Set<ImpactElement> curr_roots = curr.getMD(ROOTS, new HashSet<ImpactElement>());
+        curr.putMD(ROOTS, curr_roots);
         Relations tmp = dag.get(curr); // hash == 1 from JDK8?
+        ImpactChain prev = si.getPrevious();
         if (tmp == null) {
             tmp = new Relations(curr, si.size());
             dag.put(curr, tmp);
-            ImpactChain prev = si.getPrevious();
             if (prevCurr != null)// && prevType!=null
                 tmp.addEffect(prevCurr, prevType);
             if (prev != null) {
                 tmp.addCause(prev.getLast(), si.getType());
                 addCause(prev, curr, si.getType());
             }
+            curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
+            for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT,new HashSet<ImpactChain>())){
+                addCause(redundant, curr, redundant.getType());
+            }
         } else {
-            ImpactChain prev = si.getPrevious();
             if (prevCurr != null)// && prevType!=null
                 tmp.addEffect(prevCurr, prevType);
             if (prev != null) {
@@ -175,6 +169,8 @@ public class Impacts implements JsonSerializable {
             }
         }
     }
+
+    private static String ROOTS = "impacts.roots";
 
     private void addCauseBis(final ImpactChain si) {
         Map<ImpactElement, Relations> dag = verticesPerTests.get(si.getLast());

@@ -69,7 +69,7 @@ public class App {
             throw new RuntimeException(e);
         }
         System.out.println(imptst1);
-        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1.finishedChains, imptst1.redundantChains);
+        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1.finishedChains);
     }
 
     public static void main2(String[] args) throws IOException, ImpactAnalysisException {
@@ -233,7 +233,7 @@ public class App {
         }
         Explorer imptst = l.getImpactedTests(executableRefsAsPosition);
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        Impacts x = new Impacts(imptst.finishedChains, imptst.redundantChains);;
+        Impacts x = new Impacts(imptst.finishedChains);
         System.out.println(gson.toJson(x.toJson(new ToJson() {
             public JsonElement apply(Object x) {
                 if (x instanceof JsonSerializable) {

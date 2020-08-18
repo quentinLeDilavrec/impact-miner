@@ -71,8 +71,8 @@ public class Explorer {
     private final ImpactAnalysis impactAnalysis;
     // chains ending on a test declaration
     protected final List<ImpactChain> finishedChains = new ArrayList<>();
-    // dependency chain redundant with other chains, longer than the one that is continued
-    protected final List<ImpactChain> redundantChains = new ArrayList<>();
+    // // dependency chain redundant with other chains, longer than the one that is continued
+    // protected final List<ImpactChain> redundantChains = new ArrayList<>();
     protected final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>();
     // protected final SortedMap<Integer,Set<ImpactChain>> callChains = new ConcurrentSkipListMap<>();
     protected final Map<Integer, Set<ImpactChain>> callChainsAAA = new ConcurrentHashMap<>();
@@ -87,13 +87,20 @@ public class Explorer {
     protected final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<>(); // idem
     private final boolean getOnTests;
 
+    static final String WEIGHT = "weight";
+    static final String TESTS_REACHED = "tests reached";
+    static final String BEST_WEIGHT_CG = "best weight call graph";
+    static final String BEST_WEIGHT_TYPE = "best weight type graph";
+    static final String BEST_WEIGHT_FLOW = "best weight flow graph";
+    static final String REDUNDANT = "redundant";
+
     public List<ImpactChain> getFinishedChains() {
         return Collections.unmodifiableList(finishedChains);
     }
 
-    public List<ImpactChain> getRedundantChains() {
-        return Collections.unmodifiableList(redundantChains);
-    }
+    // public List<ImpactChain> getRedundantChains() {
+    //     return Collections.unmodifiableList(redundantChains);
+    // }
 
     public List<ImpactChain> getAbortedChains() {
         return Collections.unmodifiableList(abortedChains);
@@ -106,45 +113,45 @@ public class Explorer {
         return alreadyMarchedElement.get(ie);
     }
 
-    /**
-     * 
-     * @param chain size()>0
-     * @param possibility
-     * @return non-Null
-     */
-    public Collection<ImpactChain> destinationOracle(ImpactChain candidate) {
-        if (candidate.size() > 100) {
-            return abortedChains;
-        }
-        int best_weight_ele = (int) candidate.getLast().getMD(BEST_WEIGHT_CG, 0);
-        int chain_weight = candidate.getMD(WEIGHT, 0);
-        if (chain_weight <= best_weight_ele) {
-            int nb = candidate.getLast().getMD(TESTS_REACHED, 0);
-            if (nb > 0)
-                setPrevsAsImpactingTests(candidate, nb);
-            return redundantChains;
-        }
-        candidate.getLast().putMD(BEST_WEIGHT_CG, chain_weight);
-        assert candidate.getType() != null;
-        switch (candidate.getType().level) {
-            case CALL_GRAPH:
-                return callChains;
-            case TYPE_GRAPH:
-                return typeChains;
-            case FLOW_GRAPH:
-                return flowChains;
-            case STRUCT_GRAPH:
-                return structChains;
-            case OTHER:
-                return otherChains;
-        }
-        return abortedChains;
-    }
+    // /**
+    //  * 
+    //  * @param chain size()>0
+    //  * @param possibility
+    //  * @return non-Null
+    //  */
+    // public Collection<ImpactChain> destinationOracle(ImpactChain candidate) {
+    //     if (candidate.size() > 100) {
+    //         return abortedChains;
+    //     }
+    //     int best_weight_ele = (int) candidate.getLast().getMD(BEST_WEIGHT_CG, 0);
+    //     int chain_weight = candidate.getMD(WEIGHT, 0);
+    //     if (chain_weight <= best_weight_ele) {
+    //         int nb = candidate.getLast().getMD(TESTS_REACHED, 0);
+    //         if (nb > 0)
+    //             setPrevsAsImpactingTests(candidate, nb);
+    //         return redundantChains;
+    //     }
+    //     candidate.getLast().putMD(BEST_WEIGHT_CG, chain_weight);
+    //     assert candidate.getType() != null;
+    //     switch (candidate.getType().level) {
+    //         case CALL_GRAPH:
+    //             return callChains;
+    //         case TYPE_GRAPH:
+    //             return typeChains;
+    //         case FLOW_GRAPH:
+    //             return flowChains;
+    //         case STRUCT_GRAPH:
+    //             return structChains;
+    //         case OTHER:
+    //             return otherChains;
+    //     }
+    //     return abortedChains;
+    // }
 
-    private ImpactChain proposeCommit(ImpactChain current) {
-        destinationOracle(current).add(current);
-        return current;
-    }
+    // private ImpactChain proposeCommit(ImpactChain current) {
+    //     destinationOracle(current).add(current);
+    //     return current;
+    // }
 
     public static CtExecutable<?> getHigherExecutable(final CtElement element) {
         CtExecutable<?> result;
@@ -202,18 +209,12 @@ public class Explorer {
         ImpactChain current = chain;
         while (current != null) {
             current.putMD(TESTS_REACHED, current.getMD(TESTS_REACHED, 0) + qtt);
-            for (ImpactChain redundant : current.getLast().getMD("redundant", new HashSet<ImpactChain>())) {
+            for (ImpactChain redundant : current.getLast().getMD(REDUNDANT, new HashSet<ImpactChain>())) {
                 setPrevsAsImpactingTests(redundant, qtt);
             }
             current = current.getPrevious();
         }
     }
-
-    private static final String WEIGHT = "weight";
-    private static final String TESTS_REACHED = "tests reached";
-    private static final String BEST_WEIGHT_CG = "best weight call graph";
-    private static final String BEST_WEIGHT_TYPE = "best weight type graph";
-    private static final String BEST_WEIGHT_FLOW = "best weight flow graph";
 
     // TODO !!!!!!!
     ImpactType.Level processCallChain() {
@@ -233,7 +234,9 @@ public class Explorer {
             int nb = current.getLast().getMD(TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            redundantChains.add(current);
+            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            redu.add(current);
+            current.getLast().putMD(REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
         current.getLast().putMD(BEST_WEIGHT_CG, weight);
@@ -279,7 +282,9 @@ public class Explorer {
             int nb = current.getLast().getMD(TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            redundantChains.add(current);
+            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            redu.add(current);
+            current.getLast().putMD(REDUNDANT, redu);
             return ImpactType.Level.TYPE_GRAPH;
         }
         current.getLast().putMD(BEST_WEIGHT_TYPE + "_" + current.getMD("parameter index", (Integer) null), weight);
@@ -291,8 +296,7 @@ public class Explorer {
             } else {
                 Integer i = current.getMD("parameter index");
                 if (i != null) { //
-                    ImpactElement ext_ele = getImpactElement(
-                            ((CtExecutable<?>) current_elem).getParameters().get(i));
+                    ImpactElement ext_ele = getImpactElement(((CtExecutable<?>) current_elem).getParameters().get(i));
                     ImpactChain extended = current.extend(ext_ele, ImpactType.PARAMETER,
                             weightedMore(map("parameter index", i), weight));
                     typeChains.add(extended);
@@ -392,7 +396,9 @@ public class Explorer {
             int nb = current.getLast().getMD(TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            redundantChains.add(current);
+            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            redu.add(current);
+            current.getLast().putMD(REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
         current.getLast().putMD(BEST_WEIGHT_FLOW, weight);
@@ -422,7 +428,9 @@ public class Explorer {
             int nb = current.getLast().getMD(TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            redundantChains.add(current);
+            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            redu.add(current);
+            current.getLast().putMD(REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
         current.getLast().putMD(BEST_WEIGHT_CG, weight);
@@ -452,7 +460,9 @@ public class Explorer {
             int nb = current.getLast().getMD(TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            redundantChains.add(current);
+            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            redu.add(current);
+            current.getLast().putMD(REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
         current.getLast().putMD(BEST_WEIGHT_CG, weight);
@@ -873,47 +883,47 @@ public class Explorer {
 
     };
 
-    public void expandToScopeOtherwiseExecutableOtherwiseType(final ImpactChain current, final CtElement current_elem,
-            final Integer weight) {
-        try {
-            final CtCodeElement parentScopeBlock = current_elem.getParent(scopeFilter);
-            if (parentScopeBlock != null) {
-                if (parentScopeBlock instanceof CtType) {
-                    proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
-                            weightedMore(weight - 1)));
-                } else if (parentScopeBlock instanceof CtExecutable) {
-                    proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
-                            weightedMore(weight - 1)));
-                } else if (parentScopeBlock instanceof CtBlock) {
-                    final CtElement parentEle = parentScopeBlock.getParent();
-                    if (parentEle == null) {
-                        proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
-                                weightedMore(weight - 1)));
-                    } else if (parentEle instanceof CtBlock) {
-                        proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
-                                weightedMore(weight - 1)));
-                    } else if (parentEle instanceof CtCodeElement && scopeFilter.matches((CtCodeElement) parentEle)) {
-                        proposeCommit(current.extend(getImpactElement(parentEle), ImpactType.DIRECT_EXPAND,
-                                weightedMore(weight - 1)));
-                    } else {
-                        proposeCommit(current.extend(getImpactElement(parentEle), ImpactType.DIRECT_EXPAND,
-                                weightedMore(weight - 1)));
-                    }
-                } else {
-                    proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
-                            weightedMore(current_elem instanceof CtExecutable ? 0 : weight - 10)));
-                }
-            } else {
-                finishChain(current);
-            }
-        } catch (final ParentNotInitializedException e) {
-            ImpactAnalysis.logger.info("ParentNotInitializedException");
-        }
-        // TODO expand to type (class for example as a modifier of a class or an extends
-        // or an implements)
+    // public void expandToScopeOtherwiseExecutableOtherwiseType(final ImpactChain current, final CtElement current_elem,
+    //         final Integer weight) {
+    //     try {
+    //         final CtCodeElement parentScopeBlock = current_elem.getParent(scopeFilter);
+    //         if (parentScopeBlock != null) {
+    //             if (parentScopeBlock instanceof CtType) {
+    //                 proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
+    //                         weightedMore(weight - 1)));
+    //             } else if (parentScopeBlock instanceof CtExecutable) {
+    //                 proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
+    //                         weightedMore(weight - 1)));
+    //             } else if (parentScopeBlock instanceof CtBlock) {
+    //                 final CtElement parentEle = parentScopeBlock.getParent();
+    //                 if (parentEle == null) {
+    //                     proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
+    //                             weightedMore(weight - 1)));
+    //                 } else if (parentEle instanceof CtBlock) {
+    //                     proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
+    //                             weightedMore(weight - 1)));
+    //                 } else if (parentEle instanceof CtCodeElement && scopeFilter.matches((CtCodeElement) parentEle)) {
+    //                     proposeCommit(current.extend(getImpactElement(parentEle), ImpactType.DIRECT_EXPAND,
+    //                             weightedMore(weight - 1)));
+    //                 } else {
+    //                     proposeCommit(current.extend(getImpactElement(parentEle), ImpactType.DIRECT_EXPAND,
+    //                             weightedMore(weight - 1)));
+    //                 }
+    //             } else {
+    //                 proposeCommit(current.extend(getImpactElement(parentScopeBlock), ImpactType.DIRECT_EXPAND,
+    //                         weightedMore(current_elem instanceof CtExecutable ? 0 : weight - 10)));
+    //             }
+    //         } else {
+    //             finishChain(current);
+    //         }
+    //     } catch (final ParentNotInitializedException e) {
+    //         ImpactAnalysis.logger.info("ParentNotInitializedException");
+    //     }
+    //     // TODO expand to type (class for example as a modifier of a class or an extends
+    //     // or an implements)
 
-        // TODO how should @override or abstract be handled (virtual call)
-    }
+    //     // TODO how should @override or abstract be handled (virtual call)
+    // }
 
     public Set<ImpactChain> followUses(final ImpactChain current, final CtType<?> current_elem, final Integer weight) {
         Set<ImpactChain> result = new HashSet<>();

@@ -300,57 +300,57 @@ public class ImpactAnalysis {
         return explorer;
     }
 
-    private Explorer exploreAST2Old(final Set<ImpactChain> impactChains, final boolean getOnTests) {
-        final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
+    // private Explorer exploreAST2Old(final Set<ImpactChain> impactChains, final boolean getOnTests) {
+    //     final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
 
-        while (!explorer.processedChains.isEmpty()) {
+    //     while (!explorer.processedChains.isEmpty()) {
 
-            final ImpactChain current = explorer.processedChains.poll();
-            final CtElement current_elem = current.getLast().getContent();
-            final Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
+    //         final ImpactChain current = explorer.processedChains.poll();
+    //         final CtElement current_elem = current.getLast().getContent();
+    //         final Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
 
-            if (weight <= 0) {
-                explorer.finishChain(current);
-            } else if (current_elem instanceof CtExecutable) {
-                if (isTest((CtExecutable<?>) current_elem)) {
-                    explorer.finishedChains.add(current);
-                } else {
-                    explorer.followUsage(current, (CtExecutable<?>) current_elem, weight);
-                }
-            } else if (current_elem instanceof CtExpression) {
-                explorer.followValue(current, (CtExpression<?>) current_elem, weight);
-                if (current_elem instanceof CtAbstractInvocation) {
-                    // argument possible writes
-                    explorer.followValueArguments(current, (CtAbstractInvocation<?>) current_elem, weight);
-                    // current type
-                }
-                // explorer.followTypes(current, (CtExpression<?>) current_elem, weight); //
-                // current type
-                // } else if (current_elem instanceof CtStatement) {
-            } else if (current_elem instanceof CtVariable) {
-                explorer.followVariableValueAndUses(current, (CtVariable<?>) current_elem, weight);
-                // explorer.followTypes(current, (CtLocalVariable) current_elem, weight); //
-                // current type
-                // } else if (current_elem instanceof CtAssignment) { // is an expression
-                // explorer.followReads(current, (CtAssignment) current_elem, weight);
-                // // explorer.followTypes(current, (CtAssignment) current_elem, weight); //
-                // // current type
-                // } else if (current_elem instanceof CtReturn) {
-                // // explorer.followTypes(current, ((CtReturn)
-                // // current_elem).getReturnedExpression(), weight); // current
-                // // type
-                // explorer.followReads(current, (CtExpression<?>) ((CtReturn)
-                // current_elem).getReturnedExpression(),
-                // weight);
-                // explorer.expand3(current, current_elem, weight); // returns
-            } else if (current_elem instanceof CtType) {
-                explorer.followUses(current, (CtType<?>) current_elem, weight);
-            } else {
-                explorer.expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem, weight);
-            }
-        }
-        return explorer;
-    }
+    //         if (weight <= 0) {
+    //             explorer.finishChain(current);
+    //         } else if (current_elem instanceof CtExecutable) {
+    //             if (isTest((CtExecutable<?>) current_elem)) {
+    //                 explorer.finishedChains.add(current);
+    //             } else {
+    //                 explorer.followUsage(current, (CtExecutable<?>) current_elem, weight);
+    //             }
+    //         } else if (current_elem instanceof CtExpression) {
+    //             explorer.followValue(current, (CtExpression<?>) current_elem, weight);
+    //             if (current_elem instanceof CtAbstractInvocation) {
+    //                 // argument possible writes
+    //                 explorer.followValueArguments(current, (CtAbstractInvocation<?>) current_elem, weight);
+    //                 // current type
+    //             }
+    //             // explorer.followTypes(current, (CtExpression<?>) current_elem, weight); //
+    //             // current type
+    //             // } else if (current_elem instanceof CtStatement) {
+    //         } else if (current_elem instanceof CtVariable) {
+    //             explorer.followVariableValueAndUses(current, (CtVariable<?>) current_elem, weight);
+    //             // explorer.followTypes(current, (CtLocalVariable) current_elem, weight); //
+    //             // current type
+    //             // } else if (current_elem instanceof CtAssignment) { // is an expression
+    //             // explorer.followReads(current, (CtAssignment) current_elem, weight);
+    //             // // explorer.followTypes(current, (CtAssignment) current_elem, weight); //
+    //             // // current type
+    //             // } else if (current_elem instanceof CtReturn) {
+    //             // // explorer.followTypes(current, ((CtReturn)
+    //             // // current_elem).getReturnedExpression(), weight); // current
+    //             // // type
+    //             // explorer.followReads(current, (CtExpression<?>) ((CtReturn)
+    //             // current_elem).getReturnedExpression(),
+    //             // weight);
+    //             // explorer.expand3(current, current_elem, weight); // returns
+    //         } else if (current_elem instanceof CtType) {
+    //             explorer.followUses(current, (CtType<?>) current_elem, weight);
+    //         } else {
+    //             explorer.expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem, weight);
+    //         }
+    //     }
+    //     return explorer;
+    // }
 
     // private List<ImpactChain<? extends CtElement>> exploreASTDecl(final
     // Collection<CtExecutable<?>> x) {
