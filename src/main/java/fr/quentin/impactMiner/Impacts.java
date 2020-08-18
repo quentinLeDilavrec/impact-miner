@@ -148,7 +148,9 @@ public class Impacts implements JsonSerializable {
         curr.putMD(ROOTS, curr_roots);
         Relations tmp = dag.get(curr); // hash == 1 from JDK8?
         ImpactChain prev = si.getPrevious();
+        boolean already = true;
         if (tmp == null) {
+            already = false;
             tmp = new Relations(curr, si.size());
             dag.put(curr, tmp);
         }
@@ -156,15 +158,19 @@ public class Impacts implements JsonSerializable {
             tmp.addEffect(prevCurr, prevType);
         if (prev != null) {
             tmp.addCause(prev.getLast(), si.getType());
-            addCause(prev, curr, si.getType());
-            curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
-        }else {
+            if (!already) {
+                addCause(prev, curr, si.getType());
+                curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
+            }
+        } else {
             curr_roots.add(curr);
         }
-        for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
-            verticesPerRoots.putIfAbsent(redundant.getRoot(), new HashMap<>()); // caution, also need to add ele already visited
-            roots.add(si.getRoot());
-            addCause(redundant, prevCurr, prevType);
+        if (!already) {
+            for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
+                verticesPerRoots.putIfAbsent(redundant.getRoot(), new HashMap<>()); // caution, also need to add ele already visited
+                roots.add(si.getRoot());
+                addCause(redundant, prevCurr, prevType);
+            }
         }
     }
 
