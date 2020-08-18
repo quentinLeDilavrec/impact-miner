@@ -114,7 +114,7 @@ public class Impacts implements JsonSerializable {
     }
 
     // TODO try to remove ImpactElement wrapper
-    private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerRoots;
+    private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerRoots; // patial, stop at redundant nodes
     private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerTests;
     private Map<ImpactElement, Set<Object>> tests;
     private Set<ImpactElement> roots;
@@ -157,15 +157,17 @@ public class Impacts implements JsonSerializable {
                 tmp.addCause(prev.getLast(), si.getType());
                 addCause(prev, curr, si.getType());
                 curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
-                for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
-                    addCause(redundant, curr, redundant.getType());
-                }
+            }
+            for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
+                verticesPerRoots.putIfAbsent(redundant.getRoot(), new HashMap<>()); // caution, also need to add ele already visited
+                addCause(redundant, prevCurr, prevType);
             }
         } else {
             if (prevCurr != null)// && prevType!=null
                 tmp.addEffect(prevCurr, prevType);
             if (prev != null) {
                 tmp.addCause(prev.getLast(), si.getType());
+                curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
             }
         }
     }
