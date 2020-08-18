@@ -134,7 +134,7 @@ public class Impacts implements JsonSerializable {
             if (last.getContent() instanceof CtExecutable<?>
                     && ImpactAnalysis.isTest((CtExecutable<?>) last.getContent())) {
                 tests.putIfAbsent(last, new HashSet<>());
-                for (ImpactElement root : last.getMD(ROOTS,new HashSet<ImpactElement>())) {
+                for (ImpactElement root : last.getMD(ROOTS, new HashSet<ImpactElement>())) {
                     tests.get(last).addAll(root.getEvolutions());
                 }
             }
@@ -156,10 +156,10 @@ public class Impacts implements JsonSerializable {
             if (prev != null) {
                 tmp.addCause(prev.getLast(), si.getType());
                 addCause(prev, curr, si.getType());
-            }
-            curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
-            for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT,new HashSet<ImpactChain>())){
-                addCause(redundant, curr, redundant.getType());
+                curr_roots.addAll(prev.getMD(ROOTS, new HashSet<ImpactElement>()));
+                for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
+                    addCause(redundant, curr, redundant.getType());
+                }
             }
         } else {
             if (prevCurr != null)// && prevType!=null
