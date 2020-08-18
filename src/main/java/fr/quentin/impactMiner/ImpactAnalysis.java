@@ -127,7 +127,7 @@ public class ImpactAnalysis {
             assert pos.isValidPosition() : pos;
             ImpactElement tmp2 = new ImpactElement(ele);
             elements.putIfAbsent(tmp2, tmp2);
-            tmp2 = elements.get(new ImpactElement(ele));
+            tmp2 = elements.get(tmp2);
             tmp2.addEvolution(impactingThing,
                     new Position(pos.getFile().getAbsolutePath(), pos.getSourceStart(), pos.getSourceEnd()));
             chains.add(new ImpactChain(tmp2));
@@ -162,7 +162,7 @@ public class ImpactAnalysis {
             assert position != null : element;
             ImpactElement tmp2 = new ImpactElement(element);
             elements.putIfAbsent(tmp2, tmp2);
-            tmp2 = elements.get(new ImpactElement(element));
+            tmp2 = elements.get(tmp2);
             tmp2.addEvolution(impactingThing, position);
             chains.add(new ImpactChain(tmp2));
         }
@@ -185,7 +185,7 @@ public class ImpactAnalysis {
             assert element != null : element;
             ImpactElement tmp2 = new ImpactElement(element);
             elements.putIfAbsent(tmp2, tmp2);
-            tmp2 = elements.get(new ImpactElement(element));
+            tmp2 = elements.get(tmp2);
             tmp2.addEvolution(impactingThing, pos);
             chains.add(new ImpactChain(tmp2));
         }
@@ -204,7 +204,7 @@ public class ImpactAnalysis {
                 for (final CtElement element : tmp) {
                     ImpactElement tmp2 = new ImpactElement(element);
                     elements.putIfAbsent(tmp2, tmp2);
-                    tmp2 = elements.get(new ImpactElement(element));
+                    tmp2 = elements.get(tmp2);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
                     chains.add(new ImpactChain(tmp2));
                 }
@@ -225,7 +225,7 @@ public class ImpactAnalysis {
                 for (final CtElement element : tmp) {
                     ImpactElement tmp2 = new ImpactElement(element);
                     elements.putIfAbsent(tmp2, tmp2);
-                    tmp2 = elements.get(new ImpactElement(element));
+                    tmp2 = elements.get(tmp2);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
                     chains.add(new ImpactChain(tmp2));
                 }
