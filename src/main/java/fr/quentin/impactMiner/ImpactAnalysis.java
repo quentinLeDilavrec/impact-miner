@@ -139,6 +139,7 @@ public class ImpactAnalysis {
     public <T> Explorer getImpactedTests4(final Collection<ImmutablePair<Object, Object>> col, final boolean onTests)
             throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
+        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
         for (final ImmutablePair<Object, Object> x : col) {
             final Object impactingThing = x.left;
             CtElement element = null;
@@ -159,7 +160,9 @@ public class ImpactAnalysis {
             }
             assert element != null : position;
             assert position != null : element;
-            final ImpactElement tmp2 = new ImpactElement(element);
+            ImpactElement tmp2 = new ImpactElement(element);
+            elements.putIfAbsent(tmp2, tmp2);
+            tmp2 = elements.get(new ImpactElement(element));
             tmp2.addEvolution(impactingThing, position);
             chains.add(new ImpactChain(tmp2));
         }
@@ -170,6 +173,7 @@ public class ImpactAnalysis {
     public <T> Explorer getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col, final boolean onTests)
             throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
+        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
         for (final ImmutablePair<Object, Position> x : col) {
             final Object impactingThing = x.left;
             final Position pos = x.right;
@@ -179,7 +183,9 @@ public class ImpactAnalysis {
             }
             CtElement element = Utils.matchExact((CtElement) tmp0, pos.getStart(), pos.getEnd() - 1);
             assert element != null : element;
-            final ImpactElement tmp2 = new ImpactElement(element);
+            ImpactElement tmp2 = new ImpactElement(element);
+            elements.putIfAbsent(tmp2, tmp2);
+            tmp2 = elements.get(new ImpactElement(element));
             tmp2.addEvolution(impactingThing, pos);
             chains.add(new ImpactChain(tmp2));
         }
@@ -189,13 +195,16 @@ public class ImpactAnalysis {
 
     public <T> Explorer getImpactedTests(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
+        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPreEvolutionPositions()) {
                 final List<CtElement> tmp = this.augmented.launcher.getModel().getElements(new FilterEvolvedElements(
                         Paths.get(this.augmented.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                         pos.getStart(), pos.getEnd()));
                 for (final CtElement element : tmp) {
-                    final ImpactElement tmp2 = new ImpactElement(element);
+                    ImpactElement tmp2 = new ImpactElement(element);
+                    elements.putIfAbsent(tmp2, tmp2);
+                    tmp2 = elements.get(new ImpactElement(element));
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
                     chains.add(new ImpactChain(tmp2));
                 }
@@ -207,13 +216,16 @@ public class ImpactAnalysis {
 
     public <T> Explorer getImpactedTestsPostEvolution(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
+        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPostEvolutionPositions()) {
                 final List<CtElement> tmp = this.augmented.launcher.getModel().getElements(new FilterEvolvedElements(
                         Paths.get(this.augmented.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                         pos.getStart(), pos.getEnd()));
                 for (final CtElement element : tmp) {
-                    final ImpactElement tmp2 = new ImpactElement(element);
+                    ImpactElement tmp2 = new ImpactElement(element);
+                    elements.putIfAbsent(tmp2, tmp2);
+                    tmp2 = elements.get(new ImpactElement(element));
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
                     chains.add(new ImpactChain(tmp2));
                 }
