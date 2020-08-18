@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -117,13 +118,16 @@ public class ImpactAnalysis {
     public <T> Explorer getImpactedTests3(final Collection<ImmutablePair<Object, CtElement>> col, final boolean onTests)
             throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
+        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
         for (final ImmutablePair<Object, CtElement> x : col) {
             final CtElement ele = x.right;
             final Object impactingThing = x.left;
             // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
             final SourcePosition pos = ele.getPosition();
             assert pos.isValidPosition() : pos;
-            final ImpactElement tmp2 = new ImpactElement(ele);
+            ImpactElement tmp2 = new ImpactElement(ele);
+            elements.putIfAbsent(tmp2, tmp2);
+            tmp2 = elements.get(new ImpactElement(ele));
             tmp2.addEvolution(impactingThing,
                     new Position(pos.getFile().getAbsolutePath(), pos.getSourceStart(), pos.getSourceEnd()));
             chains.add(new ImpactChain(tmp2));
