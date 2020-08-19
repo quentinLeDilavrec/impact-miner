@@ -203,7 +203,8 @@ public class Explorer {
         while (current != null) {
             current.putMD(ImpactChain.TESTS_REACHED, current.getMD(ImpactChain.TESTS_REACHED, 0) + qtt);
             for (ImpactChain redundant : current.getLast().getMD(ImpactElement.REDUNDANT, new HashSet<ImpactChain>())) {
-                setPrevsAsImpactingTests(redundant, qtt);
+                redundant.putMD(ImpactChain.TESTS_REACHED, redundant.getMD(ImpactChain.TESTS_REACHED, 0) + qtt);
+                setPrevsAsImpactingTests(redundant.getPrevious(), qtt);
             }
             current = current.getPrevious();
         }
