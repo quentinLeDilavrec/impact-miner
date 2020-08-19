@@ -73,9 +73,9 @@ public class Explorer {
     protected final List<ImpactChain> finishedChains = new ArrayList<>();
     // // dependency chain redundant with other chains, longer than the one that is continued
     // protected final List<ImpactChain> redundantChains = new ArrayList<>();
-    protected final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>();
+    // protected final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>();
     // protected final SortedMap<Integer,Set<ImpactChain>> callChains = new ConcurrentSkipListMap<>();
-    protected final Map<Integer, Set<ImpactChain>> callChainsAAA = new ConcurrentHashMap<>();
+    // protected final Map<Integer, Set<ImpactChain>> callChainsAAA = new ConcurrentHashMap<>();
     protected final ConcurrentLinkedQueue<ImpactChain> callChains = new ConcurrentLinkedQueue<>();
     protected final ConcurrentLinkedQueue<ImpactChain> typeChains = new ConcurrentLinkedQueue<>();
     protected final ConcurrentLinkedQueue<ImpactChain> flowChains = new ConcurrentLinkedQueue<>();
@@ -84,15 +84,8 @@ public class Explorer {
     protected final List<ImpactChain> abortedChains = new ArrayList<>();
     protected final HashMap<ImpactElement, ImpactElement> alreadyMarchedElement = new HashMap<>();
     // protected final HashMap<ImpactElement, Set<ImpactChain>> alreadyMarchedElementToChains = new HashMap<>(); // better to store that in each ele
-    protected final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<>(); // idem
+    // protected final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<>(); // idem
     private final boolean getOnTests;
-
-    static final String WEIGHT = "weight";
-    static final String TESTS_REACHED = "tests reached";
-    static final String BEST_WEIGHT_CG = "best weight call graph";
-    static final String BEST_WEIGHT_TYPE = "best weight type graph";
-    static final String BEST_WEIGHT_FLOW = "best weight flow graph";
-    static final String REDUNDANT = "redundant";
 
     public List<ImpactChain> getFinishedChains() {
         return Collections.unmodifiableList(finishedChains);
@@ -208,8 +201,8 @@ public class Explorer {
     void setPrevsAsImpactingTests(ImpactChain chain, int qtt) {
         ImpactChain current = chain;
         while (current != null) {
-            current.putMD(TESTS_REACHED, current.getMD(TESTS_REACHED, 0) + qtt);
-            for (ImpactChain redundant : current.getLast().getMD(REDUNDANT, new HashSet<ImpactChain>())) {
+            current.putMD(ImpactChain.TESTS_REACHED, current.getMD(ImpactChain.TESTS_REACHED, 0) + qtt);
+            for (ImpactChain redundant : current.getLast().getMD(ImpactElement.REDUNDANT, new HashSet<ImpactChain>())) {
                 setPrevsAsImpactingTests(redundant, qtt);
             }
             current = current.getPrevious();
@@ -225,21 +218,21 @@ public class Explorer {
         if (current.size() > 100) {
             abortedChains.add(current);
         }
-        int weight = current.getMD(WEIGHT, 0);
+        int weight = current.getMD(ImpactChain.WEIGHT, 0);
         if (weight <= 0) {
             abortedChains.add(current);
         }
-        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_CG, 0);
+        int best_weight_ele = (int) current.getLast().getMD(ImpactChain.BEST_WEIGHT_CG, 0);
         if (weight <= best_weight_ele) {
-            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            int nb = current.getMD(ImpactChain.TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            HashSet<Object> redu = current.getLast().getMD(ImpactElement.REDUNDANT, new HashSet<>());
             redu.add(current);
-            current.getLast().putMD(REDUNDANT, redu);
+            current.getLast().putMD(ImpactElement.REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
-        current.getLast().putMD(BEST_WEIGHT_CG, weight);
+        current.getLast().putMD(ImpactChain.BEST_WEIGHT_CG, weight);
 
         final CtElement current_elem = current.getLast().getContent();
         if (current_elem instanceof CtExecutable) {
@@ -272,22 +265,22 @@ public class Explorer {
         if (current.size() > 100) {
             abortedChains.add(current);
         }
-        int weight = current.getMD(WEIGHT, 0);
+        int weight = current.getMD(ImpactChain.WEIGHT, 0);
         if (weight <= 0) {
             abortedChains.add(current);
         }
         int best_weight_ele = (int) current.getLast()
-                .getMD(BEST_WEIGHT_TYPE + "_" + current.getMD("parameter index", (Integer) null), 0);
+                .getMD(ImpactChain.BEST_WEIGHT_TYPE + "_" + current.getMD("parameter index", (Integer) null), 0);
         if (weight < best_weight_ele) {
-            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            int nb = current.getMD(ImpactChain.TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            HashSet<Object> redu = current.getLast().getMD(ImpactElement.REDUNDANT, new HashSet<>());
             redu.add(current);
-            current.getLast().putMD(REDUNDANT, redu);
+            current.getLast().putMD(ImpactElement.REDUNDANT, redu);
             return ImpactType.Level.TYPE_GRAPH;
         }
-        current.getLast().putMD(BEST_WEIGHT_TYPE + "_" + current.getMD("parameter index", (Integer) null), weight);
+        current.getLast().putMD(ImpactChain.BEST_WEIGHT_TYPE + "_" + current.getMD("parameter index", (Integer) null), weight);
 
         final CtElement current_elem = current.getLast().getContent();
         if (current_elem instanceof CtExecutable) {
@@ -387,21 +380,21 @@ public class Explorer {
         if (current.size() > 100) {
             abortedChains.add(current);
         }
-        int weight = current.getMD(WEIGHT, 0);
+        int weight = current.getMD(ImpactChain.WEIGHT, 0);
         if (weight <= 0) {
             abortedChains.add(current);
         }
-        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_FLOW, 0);
+        int best_weight_ele = (int) current.getLast().getMD(ImpactChain.BEST_WEIGHT_FLOW, 0);
         if (weight <= best_weight_ele) {
-            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            int nb = current.getMD(ImpactChain.TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            HashSet<Object> redu = current.getLast().getMD(ImpactElement.REDUNDANT, new HashSet<>());
             redu.add(current);
-            current.getLast().putMD(REDUNDANT, redu);
+            current.getLast().putMD(ImpactElement.REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
-        current.getLast().putMD(BEST_WEIGHT_FLOW, weight);
+        current.getLast().putMD(ImpactChain.BEST_WEIGHT_FLOW, weight);
 
         final CtElement current_elem = current.getLast().getContent();
 
@@ -419,21 +412,21 @@ public class Explorer {
         if (current.size() > 100) {
             abortedChains.add(current);
         }
-        int weight = current.getMD(WEIGHT, 0);
+        int weight = current.getMD(ImpactChain.WEIGHT, 0);
         if (weight <= 0) {
             abortedChains.add(current);
         }
-        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_CG, 0);
+        int best_weight_ele = (int) current.getLast().getMD(ImpactChain.BEST_WEIGHT_CG, 0);
         if (weight <= best_weight_ele) {
-            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            int nb = current.getMD(ImpactChain.TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            HashSet<Object> redu = current.getLast().getMD(ImpactElement.REDUNDANT, new HashSet<>());
             redu.add(current);
-            current.getLast().putMD(REDUNDANT, redu);
+            current.getLast().putMD(ImpactElement.REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
-        current.getLast().putMD(BEST_WEIGHT_CG, weight);
+        current.getLast().putMD(ImpactChain.BEST_WEIGHT_CG, weight);
 
         final CtElement current_elem = current.getLast().getContent();
 
@@ -451,21 +444,21 @@ public class Explorer {
         if (current.size() > 100) {
             abortedChains.add(current);
         }
-        int weight = current.getMD(WEIGHT, 0);
+        int weight = current.getMD(ImpactChain.WEIGHT, 0);
         if (weight <= 0) {
             abortedChains.add(current);
         }
-        int best_weight_ele = (int) current.getLast().getMD(BEST_WEIGHT_CG, 0);
+        int best_weight_ele = (int) current.getLast().getMD(ImpactChain.BEST_WEIGHT_CG, 0);
         if (weight <= best_weight_ele) {
-            int nb = current.getLast().getMD(TESTS_REACHED, 0);
+            int nb = current.getMD(ImpactChain.TESTS_REACHED, 0);
             if (nb > 0)
                 setPrevsAsImpactingTests(current, nb);
-            HashSet<Object> redu = current.getLast().getMD(REDUNDANT, new HashSet<>());
+            HashSet<Object> redu = current.getLast().getMD(ImpactElement.REDUNDANT, new HashSet<>());
             redu.add(current);
-            current.getLast().putMD(REDUNDANT, redu);
+            current.getLast().putMD(ImpactElement.REDUNDANT, redu);
             return ImpactType.Level.CALL_GRAPH;
         }
-        current.getLast().putMD(BEST_WEIGHT_CG, weight);
+        current.getLast().putMD(ImpactChain.BEST_WEIGHT_CG, weight);
 
         final CtElement current_elem = current.getLast().getContent();
 
@@ -476,14 +469,14 @@ public class Explorer {
     }
 
     int startingOracle(ImpactChain chain) {
-        return chain.getMD(WEIGHT, 1);
+        return chain.getMD(ImpactChain.WEIGHT, 1);
     }
 
     public Explorer(ImpactAnalysis impactAnalysis, final Set<ImpactChain> impactChains, final int defaultWeight,
             final boolean getOnTests) {
         this.impactAnalysis = impactAnalysis;
         for (ImpactChain impactChain : impactChains) {
-            impactChain.putMD(WEIGHT, startingOracle(impactChain) + defaultWeight);
+            impactChain.putMD(ImpactChain.WEIGHT, startingOracle(impactChain) + defaultWeight);
         }
         callChains.addAll(impactChains);
         this.getOnTests = getOnTests;
@@ -704,12 +697,12 @@ public class Explorer {
     }
 
     Map<String, Object> weightedMore(int weight) {
-        return map(WEIGHT, weight);
+        return map(ImpactChain.WEIGHT, weight);
     }
 
     Map<String, Object> weightedMore(Map<String, Object> old, int weight) {
         Map<String, Object> result = new HashMap<>(old);
-        result.put(WEIGHT, weight);
+        result.put(ImpactChain.WEIGHT, weight);
         return result;
     }
 
@@ -764,7 +757,7 @@ public class Explorer {
                                 final ImpactChain extended = current.extend(getImpactElement(fieldDecl),
                                         ImpactType.VALUE, weightedMore(weight - 1));
                                 result.add(extended);
-                                Integer weight2 = extended.getMD(WEIGHT);
+                                Integer weight2 = extended.getMD(ImpactChain.WEIGHT);
                                 for (CtVariableAccess<?> access : this.impactAnalysis.resolver
                                         .references((CtField<?>) fieldDecl)) {
                                     if (top.hasParent(access)) {

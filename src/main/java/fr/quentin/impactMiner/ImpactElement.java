@@ -20,6 +20,7 @@ public class ImpactElement {
     private final CtElement content;
     private final Map<String, Object> more = new HashMap<>();
     private final Map<Object, Position> evolutions = new HashMap<>();
+	public static final String REDUNDANT = "redundant";
 
     /**
      * @return the getEvolutionWithNonCorrectedPosition

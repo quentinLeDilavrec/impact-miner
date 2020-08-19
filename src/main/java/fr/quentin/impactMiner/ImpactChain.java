@@ -23,6 +23,7 @@ public class ImpactChain implements JsonSerializable {
     private ImpactType impactType;
     private Map<String, Object> more;
 
+
     public ImpactType getType() {
         return impactType;
     }
@@ -78,7 +79,7 @@ public class ImpactChain implements JsonSerializable {
     }
 
     public ImpactChain extend(ImpactElement x, ImpactType impactType) {
-        return new ImpactChain(this, x, impactType);
+        return extend(x, impactType, new HashMap<>());
     }
 
     public ImpactChain extend(ImpactElement x, ImpactType impactType, Map<String, Object> more) {
@@ -103,6 +104,11 @@ public class ImpactChain implements JsonSerializable {
     }
 
     private int prev_hash;
+	public static final String BEST_WEIGHT_FLOW = "best weight flow graph";
+	public static final String BEST_WEIGHT_TYPE = "best weight type graph";
+	public static final String BEST_WEIGHT_CG = "best weight call graph";
+	public static final String TESTS_REACHED = "tests reached";
+	public static final String WEIGHT = "weight";
 
     @Override
     public int hashCode() {

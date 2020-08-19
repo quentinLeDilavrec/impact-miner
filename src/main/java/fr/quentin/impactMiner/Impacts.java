@@ -3,7 +3,9 @@ package fr.quentin.impactMiner;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.Map.Entry;
 
@@ -11,6 +13,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
@@ -114,7 +118,7 @@ public class Impacts implements JsonSerializable {
     }
 
     // TODO try to remove ImpactElement wrapper
-    private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerRoots; // patial, stop at redundant nodes
+    private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerRoots; // partial, stop at redundant nodes
     private Map<ImpactElement, Map<ImpactElement, Relations>> verticesPerTests;
     private Map<ImpactElement, Set<Object>> tests;
     private Set<ImpactElement> roots;
@@ -129,7 +133,7 @@ public class Impacts implements JsonSerializable {
             ImpactElement last = si.getLast();
             verticesPerTests.putIfAbsent(last, new HashMap<>());
             roots.add(si.getRoot());
-            addCause(si, null, null);
+            addCause(si, MySLL.EMPTY);
             // addCauseBis(si);
             if (last.getContent() instanceof CtExecutable<?>
                     && ImpactAnalysis.isTest((CtExecutable<?>) last.getContent())) {
@@ -141,7 +145,7 @@ public class Impacts implements JsonSerializable {
         }
     }
 
-    private void addCause(ImpactChain si, ImpactElement prevCurr, ImpactType prevType) {
+    private void addCause(ImpactChain si, MySLL<ImmutablePair<ImpactElement,ImpactType>> prevCurrs) {
         Map<ImpactElement, Relations> dag = verticesPerRoots.get(si.getRoot());
         ImpactElement curr = si.getLast();
         Set<ImpactElement> curr_roots = curr.getMD(ROOTS, new HashSet<ImpactElement>());
@@ -154,22 +158,22 @@ public class Impacts implements JsonSerializable {
             tmp = new Relations(curr, si.size());
             dag.put(curr, tmp);
         }
-        if (prevCurr != null)// && prevType!=null
-            tmp.addEffect(prevCurr, prevType);
+        if (prevCurrs != MySLL.EMPTY)// && prevType!=null
+            tmp.addEffect(prevCurrs.head.left, prevCurrs.head.right);
         if (prev != null) {
             tmp.addCause(prev.getLast(), si.getType());
             if (!already) {
-                addCause(prev, curr, si.getType());
+                addCause(prev, prevCurrs.cons(new ImmutablePair<>(curr,si.getType())));
                 curr_roots.addAll(prev.getLast().getMD(ROOTS, new HashSet<ImpactElement>()));
             }
         } else {
             curr_roots.add(curr);
         }
         if (!already) {
-            for (ImpactChain redundant : curr.getMD(Explorer.REDUNDANT, new HashSet<ImpactChain>())) {
+            for (ImpactChain redundant : curr.getMD(ImpactElement.REDUNDANT, new HashSet<ImpactChain>())) {
                 verticesPerRoots.putIfAbsent(redundant.getRoot(), new HashMap<>()); // caution, also need to add ele already visited
                 roots.add(si.getRoot());
-                addCause(redundant, prevCurr, prevType);
+                addCause(redundant, prevCurrs);
             }
         }
     }
@@ -354,5 +358,45 @@ public class Impacts implements JsonSerializable {
     // protected void setRoots(Set<ImpactElement> roots) {
     // this.roots = roots;
     // }
+
+    private static class MySLL<T> implements Iterable<T> {
+        public final T head;
+        public final MySLL<T> tail;
+        public static final MySLL EMPTY = new MySLL(null,null);
+
+        private MySLL(T head, MySLL<T> tail) {
+            this.head = head;
+            this.tail = tail;
+        }
+
+        public MySLL<T> cons(T head){
+            return new MySLL<>(head,tail);
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            return new Iterator<T>() {
+
+                MySLL<T> curr = MySLL.this;
+
+                @Override
+                public boolean hasNext() {
+                    return curr != EMPTY;
+                }
+
+                @Override
+                public T next() {
+                    if (curr == EMPTY) {
+                        throw new NoSuchElementException();
+                    }
+                    T tmp = curr.head;
+                    curr = curr.tail;
+                    return tmp;
+                }
+
+            };
+        }
+
+    }
 
 }
