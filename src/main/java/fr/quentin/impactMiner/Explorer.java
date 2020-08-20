@@ -292,7 +292,7 @@ public class Explorer {
                 } else {
                     Set<Object> tmp = current.getMD(ImpactChain.REDUNDANT, new HashSet<>());
                     current.putMD(ImpactChain.REDUNDANT, tmp);
-                    tmp.add(best_old_chain_map);
+                    tmp.add(best_old_chain);
                     best_old_chain_map.put(curr_i, current);
                 }
             } else {
