@@ -20,7 +20,6 @@ public class ImpactElement {
     private final CtElement content;
     private final Map<String, Object> more = new HashMap<>();
     private final Map<Object, Position> evolutions = new HashMap<>();
-	public static final String REDUNDANT = "redundant";
 	public static final String BEST_FLOW = "best flow graph";
 	public static final String BEST_TYPE = "best type graph";
 	public static final String BEST_CG = "best call graph";

@@ -106,6 +106,7 @@ public class ImpactChain implements JsonSerializable {
     private int prev_hash;
 	public static final String TESTS_REACHED = "tests reached";
 	public static final String WEIGHT = "weight";
+	public static final String REDUNDANT = "redundant";
 
     @Override
     public int hashCode() {

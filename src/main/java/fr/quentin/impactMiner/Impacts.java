@@ -170,7 +170,7 @@ public class Impacts implements JsonSerializable {
             curr_roots.add(curr);
         }
         if (!already) {
-            for (ImpactChain redundant : curr.getMD(ImpactElement.REDUNDANT, new HashSet<ImpactChain>())) {
+            for (ImpactChain redundant : curr.getMD(ImpactChain.REDUNDANT, new HashSet<ImpactChain>())) {
                 verticesPerRoots.putIfAbsent(redundant.getRoot(), new HashMap<>()); // caution, also need to add ele already visited
                 roots.add(si.getRoot());
                 addCause(redundant, prevCurrs);
