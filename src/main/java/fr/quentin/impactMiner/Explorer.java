@@ -447,7 +447,7 @@ public class Explorer {
 
         // TODO !!!!! implem
 
-        structChains.add(current);
+        otherChains.add(current);
         return ImpactType.Level.STRUCT_GRAPH;
     }
 
@@ -471,7 +471,7 @@ public class Explorer {
 
         // TODO !!!!! implem
 
-        structChains.add(current);
+        abortedChains.add(current);
         return ImpactType.Level.OTHER;
     }
 
