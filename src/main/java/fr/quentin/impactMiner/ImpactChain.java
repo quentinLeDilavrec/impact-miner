@@ -104,9 +104,6 @@ public class ImpactChain implements JsonSerializable {
     }
 
     private int prev_hash;
-	public static final String BEST_WEIGHT_FLOW = "best weight flow graph";
-	public static final String BEST_WEIGHT_TYPE = "best weight type graph";
-	public static final String BEST_WEIGHT_CG = "best weight call graph";
 	public static final String TESTS_REACHED = "tests reached";
 	public static final String WEIGHT = "weight";
 
