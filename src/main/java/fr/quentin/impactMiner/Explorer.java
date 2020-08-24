@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import spoon.reflect.code.CtAbstractInvocation;
 import spoon.reflect.code.CtArrayAccess;
@@ -65,6 +66,7 @@ import spoon.reflect.visitor.Filter;
  * potential writes - all dynamic resolutions - type hierachy
  */
 public class Explorer {
+    static Logger logger = Logger.getLogger(ImpactAnalysis.class.getName());
     /**
      *
      */
@@ -235,9 +237,9 @@ public class Explorer {
         } else {
             current.getLast().putMD(ImpactElement.BEST_CG, current);
             if (best_old_chain != null) {
-                Set<Object> aaaaaaa = current.getMD(ImpactChain.REDUNDANT, new HashSet<>());
-                current.putMD(ImpactChain.REDUNDANT, aaaaaaa);
-                aaaaaaa.add(best_old_chain);
+                Set<Object> tmp = current.getMD(ImpactChain.REDUNDANT, new HashSet<>());
+                current.putMD(ImpactChain.REDUNDANT, tmp);
+                tmp.add(best_old_chain);
             }
         }
 
@@ -258,8 +260,16 @@ public class Explorer {
             }
             typeChains.add(current);
         } else {
-            current.putMD("weight", current.getMD("weight", 1) * 2);
-            typeChains.add(current);
+            CtExecutable<?> parentExe = getHigherExecutable(current_elem);
+            if (parentExe != null) {
+                ImpactChain extended = current.extend(getImpactElement(parentExe), ImpactType.EXPAND,
+                        weightedMore(weight));
+                callChains.add(extended);
+                typeChains.add(current);
+            } else {
+                current.putMD("weight", current.getMD("weight", 1) * 2);
+                typeChains.add(current);
+            }
         }
         return ImpactType.Level.CALL_GRAPH;
     }
@@ -357,16 +367,22 @@ public class Explorer {
                             weightedMore(map("parameter index", i), weight));
                     typeChains.add(extended);
                 }
-                // argument possible writes
-                Set<ImpactChain> extendeds2 = followValueArguments(current, (CtAbstractInvocation<?>) current_elem,
-                        weight);
-                typeChains.addAll(extendeds2);
-                // current type
+            } else if (current_elem.getRoleInParent().equals(CtRole.ARGUMENT)) {
+                // // argument possible writes
+                Integer i = current.getMD("parameter index");
+                if (i != null) {
+                    final Map<String, Object> more = new HashMap<>();
+                    more.put("index", i);
+                    Set<ImpactChain> extendeds2 = followTypeFromArgument(current, (CtExpression<?>) current_elem, more,
+                            weight);
+                    typeChains.addAll(extendeds2);
+                }
             }
             // followTypes(current, (CtExpression<?>) current_elem); //
             // current type
             // } else if (current_elem instanceof CtStatement) {
         } else if (current_elem instanceof CtVariable) {
+            flowChains.add(current);
             // want to get direct checked usage
             // storing info to resolve type hierarchy things would be cool
             // !! An oracle would be good to tell if the targeted type thing changed,
@@ -439,7 +455,7 @@ public class Explorer {
         if (weight <= 0) {
             abortedChains.add(current);
         }
-        
+
         Object best_weight_ele = current.getLast().getMD(ImpactElement.BEST_STRUC);
         // TODO redundant
 
@@ -463,7 +479,7 @@ public class Explorer {
         if (weight <= 0) {
             abortedChains.add(current);
         }
-        
+
         Object best_weight_ele = current.getLast().getMD(ImpactElement.BEST_OTHER);
         // TODO redundant
 
@@ -557,6 +573,9 @@ public class Explorer {
     private Set<ImpactChain> followExprFromArgument(final ImpactChain current, final CtExpression<?> expr,
             final Map<String, Object> more, final Integer weight) {
         Set<ImpactChain> result = new HashSet<>();
+        if (weight <= 0) {
+            return result;
+        }
         if (expr instanceof CtAbstractInvocation) {
             final ImpactChain extended = current.extend(getImpactElement(expr), ImpactType.ARGUMENT, more);
             // putIfNotRedundant(extended, weight - 1); // I don't think it's a good idea to
@@ -572,7 +591,8 @@ public class Explorer {
             // } else if (expr instanceof CtSuperAccess) { // should allow more precise
             // things
         } else if (expr instanceof CtSuperAccess) {
-            throw new RuntimeException("do not handle " + expr.getClass().getCanonicalName());
+            logger.log(Level.WARNING, "followExprFromArgument do not handle " + expr.getClass());
+            result.add(current.extend(getImpactElement(expr), ImpactType.ARGUMENT, weightedMore(more, 0)));
         } else if (expr instanceof CtThisAccess) { // TODO caution complex
             CtThisAccess<?> thisAccess = (CtThisAccess<?>) expr;
             CtElement parent = thisAccess.getParent();
@@ -669,7 +689,69 @@ public class Explorer {
         } else if (expr instanceof CtLiteral) {
             return result;
         } else {
-            assert false : expr;
+            logger.log(Level.WARNING, "followExprFromArgument do not handle " + expr.getClass());
+            result.add(current.extend(getImpactElement(expr), ImpactType.ARGUMENT, weightedMore(more, 0)));
+        }
+        return result;
+    }
+
+    /**
+     * 
+     * @param current
+     * @param expr
+     * @param more mostly about argument index in call
+     * @param weight
+     * @return impact chains that followed the use of type of expr 
+     */
+    private Set<ImpactChain> followTypeFromArgument(final ImpactChain current, final CtExpression<?> expr,
+            final Map<String, Object> more, final Integer weight) {
+        Set<ImpactChain> result = new HashSet<>();
+        if (weight <= 0) {
+            return result;
+        }
+        if (expr instanceof CtAbstractInvocation) {
+            result.add(current.extend(getImpactElement(expr), ImpactType.ARGUMENT, weightedMore(more, weight - 1)));
+        } else if (expr instanceof CtSuperAccess) {
+            logger.log(Level.WARNING, "followTypeFromArgument do not handle " + expr.getClass());
+            result.add(current.extend(getImpactElement(expr), ImpactType.ARGUMENT, weightedMore(more, 0)));
+        } else if (expr instanceof CtThisAccess) { // TODO caution complex
+            logger.log(Level.WARNING, "followTypeFromArgument do not handle " + expr.getClass());
+            result.add(current.extend(getImpactElement(expr), ImpactType.ARGUMENT, weightedMore(more, 0)));
+            // } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
+            //         && ((CtFieldAccess<?>) expr.getParent()).getVariable().getSimpleName().equals("class")) {
+            // } else if (expr instanceof CtTypeAccess && expr.getParent() instanceof CtFieldAccess
+            //         && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration() != null
+            //         && ((CtFieldAccess<?>) expr.getParent()).getVariable().getDeclaration().isFinal()) {
+            // } else if (expr instanceof CtTypeAccess && expr.getParent(CtType.class)
+            //         .equals(((CtTypeAccess<?>) expr).getAccessedType().getTypeDeclaration())) {
+            //             logger.log(Level.WARNING, "followTypeFromArgument do not handle " + expr.getClass());
+            // } else if (expr instanceof CtTargetedExpression) { // big approx
+            //     CtTargetedExpression<?, ?> targeted = (CtTargetedExpression<?, ?>) expr;
+            //     result.addAll(followExprFromArgument(current, targeted.getTarget(), more, weight - 1));
+        } else if (expr instanceof CtVariableAccess) {
+            CtVariable<?> x = this.impactAnalysis.resolver.reference((CtVariableAccess<?>) expr);
+            if (x != null) {
+                result.add(current.extend(getImpactElement(x), ImpactType.ARGUMENT, weightedMore(more, weight - 1)));
+            }
+        } else if (expr instanceof CtAssignment) {
+            CtAssignment<?, ?> assign = (CtAssignment<?, ?>) expr;
+            result.addAll(followExprFromArgument(current, assign.getAssigned(), more, weight - 1));
+        } else if (expr instanceof CtConditional) {
+            CtConditional<?> cond = (CtConditional<?>) expr;
+            result.addAll(followExprFromArgument(current, cond.getThenExpression(), more, weight - 1));
+            result.addAll(followExprFromArgument(current, cond.getElseExpression(), more, weight - 1));
+        } else if (expr instanceof CtBinaryOperator) {
+            CtBinaryOperator<?> op = (CtBinaryOperator<?>) expr;
+            result.addAll(followExprFromArgument(current, op.getLeftHandOperand(), more, weight - 1));
+            result.addAll(followExprFromArgument(current, op.getRightHandOperand(), more, weight - 1));
+        } else if (expr instanceof CtUnaryOperator) {
+            CtUnaryOperator<?> op = (CtUnaryOperator<?>) expr;
+            result.addAll(followExprFromArgument(current, op.getOperand(), more, weight - 1));
+        } else if (expr instanceof CtLiteral) {
+            result.add(current.extend(getImpactElement(expr), ImpactType.ARGUMENT, weightedMore(more, weight - 1)));
+        } else {
+            logger.log(Level.WARNING, "followTypeFromArgument do not handle " + expr.getClass());
+            result.add(current.extend(getImpactElement(expr), ImpactType.ARGUMENT, weightedMore(more, 0)));
         }
         return result;
     }
