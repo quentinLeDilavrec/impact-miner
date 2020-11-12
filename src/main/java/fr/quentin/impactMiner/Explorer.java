@@ -76,7 +76,7 @@ public class Explorer {
      */
     private final ImpactAnalysis impactAnalysis;
     // chains ending on a test declaration
-    protected final List<ImpactChain> finishedChains = new ArrayList<>();
+    protected final Map<ImpactElement,ImpactChain> finishedChains = new HashMap<>();
     // // dependency chain redundant with other chains, longer than the one that is continued
     // protected final List<ImpactChain> redundantChains = new ArrayList<>();
     // protected final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>();
@@ -94,7 +94,7 @@ public class Explorer {
     private final boolean getOnTests;
 
     public List<ImpactChain> getFinishedChains() {
-        return Collections.unmodifiableList(finishedChains);
+        return finishedChains.values().stream().collect(Collectors.toUnmodifiableList());
     }
 
     // public List<ImpactChain> getRedundantChains() {
@@ -257,7 +257,7 @@ public class Explorer {
         if (current_elem instanceof CtExecutable) {
             if (isTest((CtExecutable<?>) current_elem)) {
                 setPrevsAsImpactingTests(current);
-                finishedChains.add(current);
+                finishedChains.put(current.getLast(), current);
             }
             Set<ImpactChain> extendeds = followUsage(current, (CtExecutable<?>) current_elem, weight);
             callChains.addAll(extendeds);
@@ -350,7 +350,7 @@ public class Explorer {
         final CtElement current_elem = current.getLast().getContent();
         if (current_elem instanceof CtExecutable) {
             if (isTest((CtExecutable<?>) current_elem)) {
-                finishedChains.add(current);
+                finishedChains.put(current.getLast(), current);
             } else {
                 Integer i = current.getMD("parameter index");
                 if (i != null) { //
@@ -534,7 +534,7 @@ public class Explorer {
         if (getOnTests) {
             ImpactAnalysis.logger.info("Ignoring redundant impact path");
         } else {
-            finishedChains.add(chain);
+            finishedChains.put(chain.getLast(), chain);
         }
     }
 
