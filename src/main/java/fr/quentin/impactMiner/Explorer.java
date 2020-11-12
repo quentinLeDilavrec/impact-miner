@@ -13,8 +13,11 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import spoon.reflect.code.CtAbstractInvocation;
 import spoon.reflect.code.CtArrayAccess;
@@ -85,7 +88,7 @@ public class Explorer {
     protected final ConcurrentLinkedQueue<ImpactChain> structChains = new ConcurrentLinkedQueue<>();
     protected final ConcurrentLinkedQueue<ImpactChain> otherChains = new ConcurrentLinkedQueue<>();
     protected final List<ImpactChain> abortedChains = new ArrayList<>();
-    protected final HashMap<ImpactElement, ImpactElement> alreadyMarchedElement = new HashMap<>();
+    protected final Map<ImpactElement, ImpactElement> alreadyMarchedElement;
     // protected final HashMap<ImpactElement, Set<ImpactChain>> alreadyMarchedElementToChains = new HashMap<>(); // better to store that in each ele
     // protected final HashMap<ImpactChain, Integer> alreadyMarchedChains = new HashMap<>(); // idem
     private final boolean getOnTests;
@@ -103,6 +106,10 @@ public class Explorer {
     }
 
     private ImpactElement getImpactElement(CtElement next) {
+        return getImpactElement(alreadyMarchedElement, next);
+    }
+
+    public static ImpactElement getImpactElement(Map<ImpactElement, ImpactElement> alreadyMarchedElement,CtElement next) {
         assert next != null;
         ImpactElement ie = new ImpactElement(next);
         alreadyMarchedElement.putIfAbsent(ie, ie);
@@ -508,8 +515,9 @@ public class Explorer {
         return chain.getMD(ImpactChain.WEIGHT, 1);
     }
 
-    public Explorer(ImpactAnalysis impactAnalysis, final Set<ImpactChain> impactChains, final int defaultWeight,
+    public Explorer(ImpactAnalysis impactAnalysis, final Map<ImpactElement,ImpactElement> impactElements, final Set<ImpactChain> impactChains, final int defaultWeight,
             final boolean getOnTests) {
+        this.alreadyMarchedElement = new HashMap<>(impactElements);
         this.impactAnalysis = impactAnalysis;
         for (ImpactChain impactChain : impactChains) {
             impactChain.putMD(ImpactChain.WEIGHT, startingOracle(impactChain) + defaultWeight);

@@ -118,7 +118,7 @@ public class ImpactAnalysis {
     public <T> Explorer getImpactedTests3(final Collection<ImmutablePair<Object, CtElement>> col, final boolean onTests)
             throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
+        final Map<ImpactElement, ImpactElement> elements = new HashMap<>();
         for (final ImmutablePair<Object, CtElement> x : col) {
             final CtElement ele = x.right;
             final Object impactingThing = x.left;
@@ -133,13 +133,13 @@ public class ImpactAnalysis {
             chains.add(new ImpactChain(tmp2));
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
-        return exploreAST2(chains, onTests);
+        return exploreAST2(elements, chains, onTests);
     }
 
     public <T> Explorer getImpactedTests4(final Collection<ImmutablePair<Object, Object>> col, final boolean onTests)
             throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
+        final Map<ImpactElement, ImpactElement> elements = new HashMap<>();
         for (final ImmutablePair<Object, Object> x : col) {
             final Object impactingThing = x.left;
             CtElement element = null;
@@ -167,13 +167,13 @@ public class ImpactAnalysis {
             chains.add(new ImpactChain(tmp2));
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
-        return exploreAST2(chains, onTests);
+        return exploreAST2(elements, chains, onTests);
     }
 
     public <T> Explorer getImpactedTests2(final Collection<ImmutablePair<Object, Position>> col, final boolean onTests)
             throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
+        final Map<ImpactElement, ImpactElement> elements = new HashMap<>();
         for (final ImmutablePair<Object, Position> x : col) {
             final Object impactingThing = x.left;
             final Position pos = x.right;
@@ -190,12 +190,12 @@ public class ImpactAnalysis {
             chains.add(new ImpactChain(tmp2));
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
-        return exploreAST2(chains, onTests);
+        return exploreAST2(elements, chains, onTests);
     }
 
     public <T> Explorer getImpactedTests(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
+        final Map<ImpactElement, ImpactElement> elements = new HashMap<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPreEvolutionPositions()) {
                 final List<CtElement> tmp = this.augmented.launcher.getModel().getElements(new FilterEvolvedElements(
@@ -211,12 +211,12 @@ public class ImpactAnalysis {
             }
         }
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
-        return exploreAST2(chains, true);
+        return exploreAST2(elements, chains, true);
     }
 
     public <T> Explorer getImpactedTestsPostEvolution(final Collection<Evolution<T>> x) throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
-        final Map<ImpactElement,ImpactElement> elements = new HashMap<>();
+        final Map<ImpactElement, ImpactElement> elements = new HashMap<>();
         for (final Evolution<T> impactingThing : x) {
             for (final Position pos : impactingThing.getPostEvolutionPositions()) {
                 final List<CtElement> tmp = this.augmented.launcher.getModel().getElements(new FilterEvolvedElements(
@@ -232,7 +232,7 @@ public class ImpactAnalysis {
             }
         }
         Logger.getLogger("getImpactedTestsPostEvolution").info(Integer.toString(chains.size()));
-        return exploreAST2(chains, true);
+        return exploreAST2(elements, chains, true);
     }
 
     private class FilterEvolvedElements implements Filter<CtElement> {
@@ -299,73 +299,81 @@ public class ImpactAnalysis {
         }
     }
 
-    private Explorer exploreAST2(final Set<ImpactChain> impactChains, final boolean getOnTests) {
+    private Explorer exploreAST2(final Map<ImpactElement, ImpactElement> impactElements,final Set<ImpactChain> impactChains,
+            final boolean getOnTests) {
         long start = System.nanoTime();
-        final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
+        final Explorer explorer = new Explorer(this, impactElements, impactChains, maxChainLength, getOnTests);
         logger.info("starting to explore impacts");
         Level current = ImpactType.Level.CALL_GRAPH;
-        while (current!=null && ImpactType.Level.CALL_GRAPH.compareTo(current) >= 0) {
+        while (current != null && ImpactType.Level.CALL_GRAPH.compareTo(current) >= 0) {
             current = explorer.process(current);
         }
         logger.info("Call graph mainly processed in " + (System.nanoTime() - start) / 1000000 + " s");
         while (current != null) {
             current = explorer.process(current);
         }
-        // TODO if using multi-threading think about synchonizing prior to returning the result
+        // TODO if using multi-threading think about synchonizing prior to returning the
+        // result
         logger.info("All graphs processed in " + (System.nanoTime() - start) / 1000000 + " s");
         return explorer;
     }
 
-    // private Explorer exploreAST2Old(final Set<ImpactChain> impactChains, final boolean getOnTests) {
-    //     final Explorer explorer = new Explorer(this, impactChains, maxChainLength, getOnTests);
+    // private Explorer exploreAST2Old(final Set<ImpactChain> impactChains, final
+    // boolean getOnTests) {
+    // final Explorer explorer = new Explorer(this, impactChains, maxChainLength,
+    // getOnTests);
 
-    //     while (!explorer.processedChains.isEmpty()) {
+    // while (!explorer.processedChains.isEmpty()) {
 
-    //         final ImpactChain current = explorer.processedChains.poll();
-    //         final CtElement current_elem = current.getLast().getContent();
-    //         final Integer weight = explorer.alreadyMarchedChains.getOrDefault(current, maxChainLength * 1);
+    // final ImpactChain current = explorer.processedChains.poll();
+    // final CtElement current_elem = current.getLast().getContent();
+    // final Integer weight = explorer.alreadyMarchedChains.getOrDefault(current,
+    // maxChainLength * 1);
 
-    //         if (weight <= 0) {
-    //             explorer.finishChain(current);
-    //         } else if (current_elem instanceof CtExecutable) {
-    //             if (isTest((CtExecutable<?>) current_elem)) {
-    //                 explorer.finishedChains.add(current);
-    //             } else {
-    //                 explorer.followUsage(current, (CtExecutable<?>) current_elem, weight);
-    //             }
-    //         } else if (current_elem instanceof CtExpression) {
-    //             explorer.followValue(current, (CtExpression<?>) current_elem, weight);
-    //             if (current_elem instanceof CtAbstractInvocation) {
-    //                 // argument possible writes
-    //                 explorer.followValueArguments(current, (CtAbstractInvocation<?>) current_elem, weight);
-    //                 // current type
-    //             }
-    //             // explorer.followTypes(current, (CtExpression<?>) current_elem, weight); //
-    //             // current type
-    //             // } else if (current_elem instanceof CtStatement) {
-    //         } else if (current_elem instanceof CtVariable) {
-    //             explorer.followVariableValueAndUses(current, (CtVariable<?>) current_elem, weight);
-    //             // explorer.followTypes(current, (CtLocalVariable) current_elem, weight); //
-    //             // current type
-    //             // } else if (current_elem instanceof CtAssignment) { // is an expression
-    //             // explorer.followReads(current, (CtAssignment) current_elem, weight);
-    //             // // explorer.followTypes(current, (CtAssignment) current_elem, weight); //
-    //             // // current type
-    //             // } else if (current_elem instanceof CtReturn) {
-    //             // // explorer.followTypes(current, ((CtReturn)
-    //             // // current_elem).getReturnedExpression(), weight); // current
-    //             // // type
-    //             // explorer.followReads(current, (CtExpression<?>) ((CtReturn)
-    //             // current_elem).getReturnedExpression(),
-    //             // weight);
-    //             // explorer.expand3(current, current_elem, weight); // returns
-    //         } else if (current_elem instanceof CtType) {
-    //             explorer.followUses(current, (CtType<?>) current_elem, weight);
-    //         } else {
-    //             explorer.expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem, weight);
-    //         }
-    //     }
-    //     return explorer;
+    // if (weight <= 0) {
+    // explorer.finishChain(current);
+    // } else if (current_elem instanceof CtExecutable) {
+    // if (isTest((CtExecutable<?>) current_elem)) {
+    // explorer.finishedChains.add(current);
+    // } else {
+    // explorer.followUsage(current, (CtExecutable<?>) current_elem, weight);
+    // }
+    // } else if (current_elem instanceof CtExpression) {
+    // explorer.followValue(current, (CtExpression<?>) current_elem, weight);
+    // if (current_elem instanceof CtAbstractInvocation) {
+    // // argument possible writes
+    // explorer.followValueArguments(current, (CtAbstractInvocation<?>)
+    // current_elem, weight);
+    // // current type
+    // }
+    // // explorer.followTypes(current, (CtExpression<?>) current_elem, weight); //
+    // // current type
+    // // } else if (current_elem instanceof CtStatement) {
+    // } else if (current_elem instanceof CtVariable) {
+    // explorer.followVariableValueAndUses(current, (CtVariable<?>) current_elem,
+    // weight);
+    // // explorer.followTypes(current, (CtLocalVariable) current_elem, weight); //
+    // // current type
+    // // } else if (current_elem instanceof CtAssignment) { // is an expression
+    // // explorer.followReads(current, (CtAssignment) current_elem, weight);
+    // // // explorer.followTypes(current, (CtAssignment) current_elem, weight); //
+    // // // current type
+    // // } else if (current_elem instanceof CtReturn) {
+    // // // explorer.followTypes(current, ((CtReturn)
+    // // // current_elem).getReturnedExpression(), weight); // current
+    // // // type
+    // // explorer.followReads(current, (CtExpression<?>) ((CtReturn)
+    // // current_elem).getReturnedExpression(),
+    // // weight);
+    // // explorer.expand3(current, current_elem, weight); // returns
+    // } else if (current_elem instanceof CtType) {
+    // explorer.followUses(current, (CtType<?>) current_elem, weight);
+    // } else {
+    // explorer.expandToScopeOtherwiseExecutableOtherwiseType(current, current_elem,
+    // weight);
+    // }
+    // }
+    // return explorer;
     // }
 
     // private List<ImpactChain<? extends CtElement>> exploreASTDecl(final
