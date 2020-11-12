@@ -213,7 +213,7 @@ public class Explorer {
         while (current != null && current.getMD(ImpactChain.TESTS_REACHED) == null) {
             current.putMD(ImpactChain.TESTS_REACHED, true);
             for (ImpactChain redundant : current.getMD(ImpactChain.REDUNDANT, new HashSet<ImpactChain>())) {
-                if (redundant.getMD(ImpactChain.TESTS_REACHED) != null) {
+                if (redundant.getMD(ImpactChain.TESTS_REACHED) != null && redundant.<Boolean>getMD(ImpactChain.TESTS_REACHED) == true) {
                     setPrevsAsImpactingTests(redundant);
                 }
             }
@@ -236,7 +236,7 @@ public class Explorer {
         }
         ImpactChain best_old_chain = current.getLast().getMD(ImpactElement.BEST_CG);
         if (best_old_chain != null && weight <= best_old_chain.getMD(ImpactChain.WEIGHT, 0)) {
-            if ((Boolean)best_old_chain.getMD(ImpactChain.TESTS_REACHED) == true)
+            if (best_old_chain.getMD(ImpactChain.TESTS_REACHED) != null && best_old_chain.<Boolean>getMD(ImpactChain.TESTS_REACHED) == true)
                 setPrevsAsImpactingTests(current);
             HashSet<Object> redu = best_old_chain.getMD(ImpactChain.REDUNDANT, new HashSet<>());
             redu.add(current);
@@ -315,7 +315,7 @@ public class Explorer {
             ImpactChain best_old_chain = best_old_chain_map.get(curr_i);
             if (best_old_chain != null) {
                 if (weight <= best_old_chain.getMD(ImpactChain.WEIGHT, 0)) {
-                    if ((Boolean)best_old_chain.getMD(ImpactChain.TESTS_REACHED) == true)
+                    if (best_old_chain.getMD(ImpactChain.TESTS_REACHED) != null && (Boolean)best_old_chain.getMD(ImpactChain.TESTS_REACHED) == true)
                         setPrevsAsImpactingTests(current);
                     HashSet<Object> redu = best_old_chain.getMD(ImpactChain.REDUNDANT, new HashSet<>());
                     redu.add(current);
