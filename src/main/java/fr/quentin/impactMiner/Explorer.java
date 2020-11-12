@@ -56,6 +56,7 @@ import spoon.reflect.declaration.CtTypedElement;
 import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.ParentNotInitializedException;
 import spoon.reflect.path.CtRole;
+import spoon.reflect.reference.CtReference;
 import spoon.reflect.visitor.Filter;
 
 /**
@@ -259,6 +260,18 @@ public class Explorer {
                 callChains.add(extended);
             }
             typeChains.add(current);
+        } else if (current_elem instanceof CtReference) {
+            // now try to find a parent that is not a reference
+            CtElement parent = current_elem.getParent();
+            if (parent != null) {
+                ImpactChain extended = current.extend(getImpactElement(parent), ImpactType.EXPAND,
+                        weightedMore(weight));
+                callChains.add(extended);
+                typeChains.add(current);
+            } else {
+                current.putMD("weight", current.getMD("weight", 1) * 2);
+                typeChains.add(current);
+            }
         } else {
             CtExecutable<?> parentExe = getHigherExecutable(current_elem);
             if (parentExe != null) {
