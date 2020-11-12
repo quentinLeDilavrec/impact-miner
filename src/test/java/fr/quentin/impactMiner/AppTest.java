@@ -63,6 +63,6 @@ public class AppTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1.finishedChains);
+        fr.quentin.impactMiner.Impacts rawImpacts = new fr.quentin.impactMiner.Impacts(imptst1.getFinishedChains());
     }
 }
