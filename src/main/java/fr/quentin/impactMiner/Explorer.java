@@ -391,7 +391,8 @@ public class Explorer {
                             weightedMore(map("parameter index", i), weight));
                     typeChains.add(extended);
                 }
-            } else if (current_elem.getRoleInParent().equals(CtRole.ARGUMENT)) {
+            } 
+            if (current_elem.getRoleInParent().equals(CtRole.ARGUMENT)) {
                 // // argument possible writes
                 Integer i = current.getMD("parameter index");
                 if (i != null) {
