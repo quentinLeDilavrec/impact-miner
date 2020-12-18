@@ -91,10 +91,8 @@ public class AugmentedAST<T extends SpoonAPI> {
         this.allExecutablesReferences = new ArrayList<>();
         for (final CtExecutable<?> e : this.launcher.getModel().getElements(new TypeFilter<>(CtExecutable.class))) {
             try {
-                if (e!=null) {
-                    this.allExecutablesReferences.add(e.getReference());
-                }
-            } catch (SpoonException exc) {
+                this.allExecutablesReferences.add(e.getReference());
+            } catch (SpoonException | NullPointerException exc) {
                 exc.printStackTrace();
             }
         }
