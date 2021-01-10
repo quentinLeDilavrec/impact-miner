@@ -211,13 +211,15 @@ public class Resolver {
 
             final CtType<?> parentType = declaringElement.getParent(CtType.class);
             final Object types = parentType.getMetadata(Resolver.METADATA_KEY_REVERSE);
-            @SuppressWarnings("unchecked")
-            Set<CtType<?>> tops = ((Uses<CtType<?>>) types).getValues().stream().map(x -> x.getTopLevelType())
-                    .collect(Collectors.toSet());
-            for (final CtType<?> type : tops) {
-                initVariables(type);
+            if (types != null) {
+                @SuppressWarnings("unchecked")
+                Set<CtType<?>> tops = ((Uses<CtType<?>>) types).getValues().stream().map(x -> x.getTopLevelType())
+                        .collect(Collectors.toSet());
+                for (final CtType<?> type : tops) {
+                    initVariables(type);
+                }
             }
-            // } else if (declaringElement instanceof CtLocalVariable || declaringElement
+        // } else if (declaringElement instanceof CtLocalVariable || declaringElement
             // instanceof CtCatchVariable
             // || declaringElement instanceof CtParameter) {
             // final CtExecutable<?> parentExecutable =
