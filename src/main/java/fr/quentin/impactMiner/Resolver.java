@@ -128,9 +128,12 @@ public class Resolver {
                     final List<CtTypedElement<?>> typeds = type.getElements(new TypeFilter<>(CtTypedElement.class));
                     type.putMetadata(Resolver.METADATA_KEY_TYPED_COUNT, typeds.size());
                     for (final CtTypedElement<?> typed : typeds) {
-                        CtType<?> typeDeclaration = typed.getType().getTypeDeclaration();
-                        if (typeDeclaration != null) {
-                            insertMetaData(typeDeclaration, Resolver.METADATA_KEY_TYPED, typed);
+                            CtTypeReference<?> typeRef = typed.getType();
+                        if (typeRef != null) {
+                            CtType<?> typeDeclaration = typeRef.getTypeDeclaration();
+                            if (typeDeclaration != null) {
+                                insertMetaData(typeDeclaration, Resolver.METADATA_KEY_TYPED, typed);
+                            }
                         }
                     }
                 }
