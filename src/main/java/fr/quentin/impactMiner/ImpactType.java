@@ -10,6 +10,7 @@ public enum ImpactType {
     ACCESS("access", Level.FLOW_GRAPH), //
     CALL("call", Level.CALL_GRAPH, REF), //
     TYPE("type", Level.TYPE_GRAPH, REF), //
+    ANNOTATE("annotate", Level.CALL_GRAPH, STRUC), //
     EXPAND("expand", Level.CALL_GRAPH, STRUC), //
     DIRECT_EXPAND("direct expand", EXPAND), // TODO ignore this precision ?
     READ("read", Level.FLOW_GRAPH, REF, ACCESS), //

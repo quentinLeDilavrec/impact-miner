@@ -31,9 +31,11 @@ import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtFieldRead;
+import spoon.reflect.code.CtFieldWrite;
 import spoon.reflect.code.CtFor;
 import spoon.reflect.code.CtForEach;
 import spoon.reflect.code.CtIf;
+import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLoop;
 import spoon.reflect.code.CtReturn;
@@ -53,6 +55,7 @@ import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtField;
+import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.CtTypedElement;
@@ -955,6 +958,21 @@ public class Explorer {
                 } else {
                     assert false : parent;
                 }
+            } else if (parent instanceof CtMethod && roleInParent.equals(CtRole.ANNOTATION)) {
+                result.add(current.extend(getImpactElement(parent), ImpactType.ANNOTATE,
+                weightedMore(weight - 1)));
+                return result;
+            } else if (parent instanceof CtAssignment && roleInParent.equals(CtRole.ASSIGNED)) {
+            } else if (parent instanceof CtLambda && roleInParent.equals(CtRole.EXPRESSION)) {
+            } else if (parent instanceof CtConditional && roleInParent.equals(CtRole.ELSE)) {
+                result.add(
+                        current.extend(getImpactElement(parent), ImpactType.ELSE, weightedMore(weight - 5)));
+                return result;
+            } else if (parent instanceof CtCase && roleInParent.equals(CtRole.STATEMENT)) {
+                result.add(
+                    current.extend(getImpactElement(parent), ImpactType.THEN, weightedMore(weight - 5)));
+                return result;
+            } else if (parent instanceof CtFieldWrite && roleInParent.equals(CtRole.TARGET)) {
             } else {
                 ImpactAnalysis.logger.log(Level.WARNING,
                         "followValue case not handled: " + parent.getClass() + " " + roleInParent.name());
