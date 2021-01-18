@@ -15,11 +15,16 @@ import spoon.reflect.declaration.CtField;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.declaration.CtTypedElement;
 import spoon.reflect.declaration.CtVariable;
+import spoon.reflect.reference.CtArrayTypeReference;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtPackageReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
 import spoon.reflect.visitor.Filter;
+import spoon.reflect.visitor.Query;
+import spoon.reflect.visitor.filter.ReferenceTypeFilter;
 import spoon.reflect.visitor.filter.TypeFilter;
+import spoon.support.util.QualifiedNameBasedSortedSet;
 
 /**
  * Resolver
@@ -82,12 +87,45 @@ public class Resolver {
             ((Uses<T>) x).add(value);
         }
     }
+    
+	public static Set<CtTypeReference<?>> getUsedTypes(CtType<?> type, boolean includeSamePackage) {
+		Set<CtTypeReference<?>> typeRefs = new QualifiedNameBasedSortedSet<>();
+		for (CtTypeReference<?> typeRef : Query.getReferences(type, new ReferenceTypeFilter<CtTypeReference<?>>(CtTypeReference.class))) {
+			if (isValidTypeReference(type, typeRef) && shouldIncludeSamePackage(type, includeSamePackage, typeRef)) {
+				typeRefs.add(typeRef);
+			}
+		}
+		return typeRefs;
+	}
+
+	private static boolean shouldIncludeSamePackage(CtType<?> type, boolean includeSamePackage, CtTypeReference<?> typeRef) {
+		return includeSamePackage || (type.getPackage() != null && !getPackageReference(typeRef).equals(type.getPackage().getReference()));
+	}
+
+	private static boolean isValidTypeReference(CtType<?> type, CtTypeReference<?> typeRef) {
+        return !(isFromJavaLang(typeRef) || typeRef.isPrimitive() 
+        || typeRef instanceof CtArrayTypeReference 
+        || CtTypeReference.NULL_TYPE_NAME.equals(typeRef.getSimpleName()));
+    }
+    
+	private static CtPackageReference getPackageReference(CtTypeReference<?> tref) {
+		CtPackageReference pref = tref.getPackage();
+		while (pref == null) {
+			tref = tref.getDeclaringType();
+			pref = tref.getPackage();
+		}
+		return pref;
+    }
+    
+	private static boolean isFromJavaLang(CtTypeReference<?> typeRef) {
+		return typeRef.getPackage() != null && "java.lang".equals(typeRef.getPackage().getQualifiedName());
+	}
 
     private void initTypes(final Collection<CtType<?>> allTypes) {
         for (final CtType<?> type : allTypes) {
             Set<CtTypeReference<?>> usedTypes;
             try {
-                usedTypes = type.getUsedTypes(true);
+                usedTypes = getUsedTypes(type, true);
             } catch (Exception e) {
                 continue;
             }
