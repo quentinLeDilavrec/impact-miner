@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -79,7 +80,7 @@ public class Explorer {
      */
     private final ImpactAnalysis impactAnalysis;
     // chains ending on a test declaration
-    protected final Map<ImpactElement,ImpactChain> finishedChains = new HashMap<>();
+    protected final Map<ImpactElement, ImpactChain> finishedChains = new HashMap<>();
     // // dependency chain redundant with other chains, longer than the one that is continued
     // protected final List<ImpactChain> redundantChains = new ArrayList<>();
     // protected final ConcurrentLinkedQueue<ImpactChain> processedChains = new ConcurrentLinkedQueue<>();
@@ -112,7 +113,8 @@ public class Explorer {
         return getImpactElement(alreadyMarchedElement, next);
     }
 
-    public static ImpactElement getImpactElement(Map<ImpactElement, ImpactElement> alreadyMarchedElement,CtElement next) {
+    public static ImpactElement getImpactElement(Map<ImpactElement, ImpactElement> alreadyMarchedElement,
+            CtElement next) {
         assert next != null;
         ImpactElement ie = new ImpactElement(next);
         alreadyMarchedElement.putIfAbsent(ie, ie);
@@ -216,7 +218,8 @@ public class Explorer {
         while (current != null && current.getMD(ImpactChain.TESTS_REACHED) == null) {
             current.putMD(ImpactChain.TESTS_REACHED, true);
             for (ImpactChain redundant : current.getMD(ImpactChain.REDUNDANT, new HashSet<ImpactChain>())) {
-                if (redundant.getMD(ImpactChain.TESTS_REACHED) != null && redundant.<Boolean>getMD(ImpactChain.TESTS_REACHED) == true) {
+                if (redundant.getMD(ImpactChain.TESTS_REACHED) != null
+                        && redundant.<Boolean>getMD(ImpactChain.TESTS_REACHED) == true) {
                     setPrevsAsImpactingTests(redundant);
                 }
             }
@@ -239,7 +242,8 @@ public class Explorer {
         }
         ImpactChain best_old_chain = current.getLast().getMD(ImpactElement.BEST_CG);
         if (best_old_chain != null && weight <= best_old_chain.getMD(ImpactChain.WEIGHT, 0)) {
-            if (best_old_chain.getMD(ImpactChain.TESTS_REACHED) != null && best_old_chain.<Boolean>getMD(ImpactChain.TESTS_REACHED) == true)
+            if (best_old_chain.getMD(ImpactChain.TESTS_REACHED) != null
+                    && best_old_chain.<Boolean>getMD(ImpactChain.TESTS_REACHED) == true)
                 setPrevsAsImpactingTests(current);
             HashSet<Object> redu = best_old_chain.getMD(ImpactChain.REDUNDANT, new HashSet<>());
             redu.add(current);
@@ -318,7 +322,8 @@ public class Explorer {
             ImpactChain best_old_chain = best_old_chain_map.get(curr_i);
             if (best_old_chain != null) {
                 if (weight <= best_old_chain.getMD(ImpactChain.WEIGHT, 0)) {
-                    if (best_old_chain.getMD(ImpactChain.TESTS_REACHED) != null && (Boolean)best_old_chain.getMD(ImpactChain.TESTS_REACHED) == true)
+                    if (best_old_chain.getMD(ImpactChain.TESTS_REACHED) != null
+                            && (Boolean) best_old_chain.getMD(ImpactChain.TESTS_REACHED) == true)
                         setPrevsAsImpactingTests(current);
                     HashSet<Object> redu = best_old_chain.getMD(ImpactChain.REDUNDANT, new HashSet<>());
                     redu.add(current);
@@ -394,7 +399,7 @@ public class Explorer {
                             weightedMore(map("parameter index", i), weight));
                     typeChains.add(extended);
                 }
-            } 
+            }
             if (current_elem.getRoleInParent().equals(CtRole.ARGUMENT)) {
                 // // argument possible writes
                 Integer i = current.getMD("parameter index");
@@ -523,8 +528,8 @@ public class Explorer {
         return chain.getMD(ImpactChain.WEIGHT, 1);
     }
 
-    public Explorer(ImpactAnalysis impactAnalysis, final Map<ImpactElement,ImpactElement> impactElements, final Set<ImpactChain> impactChains, final int defaultWeight,
-            final boolean getOnTests) {
+    public Explorer(ImpactAnalysis impactAnalysis, final Map<ImpactElement, ImpactElement> impactElements,
+            final Set<ImpactChain> impactChains, final int defaultWeight, final boolean getOnTests) {
         this.alreadyMarchedElement = new HashMap<>(impactElements);
         this.impactAnalysis = impactAnalysis;
         for (ImpactChain impactChain : impactChains) {
@@ -959,20 +964,27 @@ public class Explorer {
                     assert false : parent;
                 }
             } else if (parent instanceof CtMethod && roleInParent.equals(CtRole.ANNOTATION)) {
-                result.add(current.extend(getImpactElement(parent), ImpactType.ANNOTATE,
-                weightedMore(weight - 1)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.ANNOTATE, weightedMore(weight - 1)));
                 return result;
             } else if (parent instanceof CtAssignment && roleInParent.equals(CtRole.ASSIGNED)) {
             } else if (parent instanceof CtLambda && roleInParent.equals(CtRole.EXPRESSION)) {
             } else if (parent instanceof CtConditional && roleInParent.equals(CtRole.ELSE)) {
-                result.add(
-                        current.extend(getImpactElement(parent), ImpactType.ELSE, weightedMore(weight - 5)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.ELSE, weightedMore(weight - 5)));
                 return result;
             } else if (parent instanceof CtCase && roleInParent.equals(CtRole.STATEMENT)) {
-                result.add(
-                    current.extend(getImpactElement(parent), ImpactType.THEN, weightedMore(weight - 5)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.THEN, weightedMore(weight - 5)));
                 return result;
             } else if (parent instanceof CtFieldWrite && roleInParent.equals(CtRole.TARGET)) {
+            } else if (parent instanceof CtAnnotation && roleInParent.equals(CtRole.VALUE)) {
+                String key = null;
+                for (Entry<String, CtExpression> entry : ((CtAnnotation<?>) parent).getValues().entrySet()) {
+                    if (entry.getValue()==current_elem){
+                        key = entry.getKey();
+                    }
+                }
+                result.add(current.extend(getImpactElement(parent), ImpactType.PARAMETER,
+                        weightedMore(map("key", key), weight - 1)));
+                return result;
             } else {
                 ImpactAnalysis.logger.log(Level.WARNING,
                         "followValue case not handled: " + parent.getClass() + " " + roleInParent.name());
