@@ -53,6 +53,7 @@ import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.declaration.CtAnnotation;
+import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtField;
@@ -963,7 +964,7 @@ public class Explorer {
                 } else {
                     assert false : parent;
                 }
-            } else if (parent instanceof CtMethod && roleInParent.equals(CtRole.ANNOTATION)) {
+            } else if (roleInParent.equals(CtRole.ANNOTATION)) {
                 result.add(current.extend(getImpactElement(parent), ImpactType.ANNOTATE, weightedMore(weight - 1)));
                 return result;
             } else if (parent instanceof CtAssignment && roleInParent.equals(CtRole.ASSIGNED)) {
@@ -988,7 +989,6 @@ public class Explorer {
             } else {
                 ImpactAnalysis.logger.log(Level.WARNING,
                         "followValue case not handled: " + parent.getClass() + " " + roleInParent.name());
-                assert false : parent;
                 /**
                  * CtForImpl EXPRESSION CtFieldWriteImpl TARGET CtAssignmentImpl ASSIGNED
                  */
