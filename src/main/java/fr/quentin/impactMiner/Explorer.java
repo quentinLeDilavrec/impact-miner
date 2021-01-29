@@ -2,83 +2,37 @@ package fr.quentin.impactMiner;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
-import spoon.reflect.code.CtAbstractInvocation;
-import spoon.reflect.code.CtArrayAccess;
-import spoon.reflect.code.CtAssignment;
-import spoon.reflect.code.CtBinaryOperator;
-import spoon.reflect.code.CtBlock;
-import spoon.reflect.code.CtCase;
-import spoon.reflect.code.CtCatch;
-import spoon.reflect.code.CtCodeElement;
-import spoon.reflect.code.CtConditional;
-import spoon.reflect.code.CtExpression;
-import spoon.reflect.code.CtFieldAccess;
-import spoon.reflect.code.CtFieldRead;
-import spoon.reflect.code.CtFieldWrite;
-import spoon.reflect.code.CtFor;
-import spoon.reflect.code.CtForEach;
-import spoon.reflect.code.CtIf;
-import spoon.reflect.code.CtLambda;
-import spoon.reflect.code.CtLiteral;
-import spoon.reflect.code.CtLoop;
-import spoon.reflect.code.CtReturn;
-import spoon.reflect.code.CtSuperAccess;
-import spoon.reflect.code.CtSwitch;
-import spoon.reflect.code.CtSynchronized;
-import spoon.reflect.code.CtTargetedExpression;
-import spoon.reflect.code.CtThisAccess;
-import spoon.reflect.code.CtThrow;
-import spoon.reflect.code.CtTry;
-import spoon.reflect.code.CtTypeAccess;
-import spoon.reflect.code.CtUnaryOperator;
-import spoon.reflect.code.CtVariableAccess;
-import spoon.reflect.code.CtVariableRead;
-import spoon.reflect.code.UnaryOperatorKind;
-import spoon.reflect.declaration.CtAnnotation;
-import spoon.reflect.declaration.CtClass;
-import spoon.reflect.declaration.CtElement;
-import spoon.reflect.declaration.CtExecutable;
-import spoon.reflect.declaration.CtField;
-import spoon.reflect.declaration.CtMethod;
-import spoon.reflect.declaration.CtParameter;
-import spoon.reflect.declaration.CtType;
-import spoon.reflect.declaration.CtTypedElement;
-import spoon.reflect.declaration.CtVariable;
-import spoon.reflect.declaration.ParentNotInitializedException;
+import spoon.reflect.code.*;
+import spoon.reflect.declaration.*;
 import spoon.reflect.path.CtRole;
 import spoon.reflect.reference.CtReference;
 import spoon.reflect.visitor.Filter;
 
-/**
- * Explorer is used to follow dependencies: - types dependencies, from
- * declaration to references - data dependencies, flow dependencies, read after
- * write dependency - do not consider other data dep - overshoot on : -
- * parameter usage of non primitive type parameter, consider all of them as
- * potential writes - all dynamic resolutions - type hierachy
+/***
+ * Explorer is used to follow dependencies:<ul>
+ * <li>types dependencies, from declaration to references 
+ * <li>data dependencies, flow dependencies, read after write dependency (TODO)
+ * <li>do not consider other data dep (TODO)
+ * <li>types hierachies (TODO)
+ * <li>overshoot on:<ul>
+ *   <li>all dynamic resolutions (would need hints gathered from actual runs to be more precise here)
+ *   <li>parameter usage of non primitive type parameter, consider all of them as potential writes (idem)
+ *   <li>some structures, by some times just expanding to parent executable of class (TODO)
  */
 public class Explorer {
     static Logger logger = Logger.getLogger(ImpactAnalysis.class.getName());
-    /**
-     *
-     */
     private final ImpactAnalysis impactAnalysis;
     // chains ending on a test declaration
     protected final Map<ImpactElement, ImpactChain> finishedChains = new HashMap<>();
@@ -916,11 +870,8 @@ public class Explorer {
                 // } else if (parent instanceof CtConditional) {
                 // } else if (parent instanceof CtVariableAccess) {
             } else if (parent instanceof CtArrayAccess && roleInParent.equals(CtRole.EXPRESSION)) {
-                // return;
             } else if (parent instanceof CtConditional && roleInParent.equals(CtRole.CONDITION)) {
-                // return;
             } else if (parent instanceof CtBlock) {
-                // return;
             } else if (parent instanceof CtIf && roleInParent.equals(CtRole.CONDITION)) {
                 result.add(current.extend(getImpactElement(((CtIf) parent)), ImpactType.CONDITION,
                         weightedMore(weight - 5)));
@@ -972,6 +923,9 @@ public class Explorer {
             } else if (parent instanceof CtConditional && roleInParent.equals(CtRole.ELSE)) {
                 result.add(current.extend(getImpactElement(parent), ImpactType.ELSE, weightedMore(weight - 5)));
                 return result;
+            } else if (parent instanceof CtConditional && roleInParent.equals(CtRole.THEN)) {
+                result.add(current.extend(getImpactElement(parent), ImpactType.THEN, weightedMore(weight - 5)));
+                return result;
             } else if (parent instanceof CtCase && roleInParent.equals(CtRole.STATEMENT)) {
                 result.add(current.extend(getImpactElement(parent), ImpactType.THEN, weightedMore(weight - 5)));
                 return result;
@@ -979,13 +933,15 @@ public class Explorer {
             } else if (parent instanceof CtAnnotation && roleInParent.equals(CtRole.VALUE)) {
                 String key = null;
                 for (Entry<String, CtExpression> entry : ((CtAnnotation<?>) parent).getValues().entrySet()) {
-                    if (entry.getValue()==current_elem){
+                    if (entry.getValue() == current_elem) {
                         key = entry.getKey();
                     }
                 }
                 result.add(current.extend(getImpactElement(parent), ImpactType.PARAMETER,
                         weightedMore(map("key", key), weight - 1)));
                 return result;
+            } else if (parent instanceof CtWhile && roleInParent.equals(CtRole.EXPRESSION)) {
+            } else if (parent instanceof CtArrayRead && roleInParent.equals(CtRole.TARGET)) {
             } else {
                 ImpactAnalysis.logger.log(Level.WARNING,
                         "followValue case not handled: " + parent.getClass() + " " + roleInParent.name());
