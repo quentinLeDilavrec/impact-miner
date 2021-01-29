@@ -854,9 +854,7 @@ public class Explorer {
                             throw new RuntimeException("" + thisAccessParent);
                         }
                     } else if (unnested instanceof CtSuperAccess) {
-                        assert false : unnested;
                     } else if (unnested instanceof CtTypeAccess) {
-                        assert false : unnested;
                     } else {
                         result.add(current.extend(getImpactElement(this.impactAnalysis.resolver.reference(unnested)),
                                 ImpactType.VALUE, weightedMore(weight - 1)));
@@ -956,7 +954,7 @@ public class Explorer {
                 CtElement parentAlt = current_elem.getParent(CtExecutable.class);
                 if (parentAlt != null) {
                     result.add(current.extend(getImpactElement((parentAlt)), ImpactType.EXPAND,
-                            weightedMore(weight - 10)));
+                            weightedMore(weight - 5)));
                 }
             }
         } catch (final ParentNotInitializedException e) {
