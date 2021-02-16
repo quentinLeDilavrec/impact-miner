@@ -929,6 +929,7 @@ public class Explorer {
                 result.add(current.extend(getImpactElement(parent), ImpactType.THEN, weightedMore(weight - 5)));
                 return result;
             } else if (parent instanceof CtFieldWrite && roleInParent.equals(CtRole.TARGET)) {
+                result.add(current.extend(getImpactElement(parent), ImpactType.WRITE, weightedMore(weight - 10)));
             } else if (parent instanceof CtAnnotation && roleInParent.equals(CtRole.VALUE)) {
                 String key = null;
                 for (Entry<String, CtExpression> entry : ((CtAnnotation<?>) parent).getValues().entrySet()) {
@@ -943,12 +944,22 @@ public class Explorer {
             } else if (parent instanceof CtDo && roleInParent.equals(CtRole.EXPRESSION)) {
             } else if (parent instanceof CtArrayRead && roleInParent.equals(CtRole.TARGET)) {
             } else if (parent instanceof CtArrayWrite && roleInParent.equals(CtRole.TARGET)) {
-                result.add(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 2)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.WRITE, weightedMore(weight - 10)));
             } else if (parent instanceof CtAssert && roleInParent.equals(CtRole.CONDITION)) {
                 // TODO consider these together with jUnit assertions as porperties that can be used for validation maybe also uncatch exc
                 // here the complexity lie in the fact that any exception can be catched
+            } else if (parent instanceof CtNewArray && roleInParent.equals(CtRole.EXPRESSION)) {
+                int ind = 0;
+                for (CtExpression<?> expr : ((CtNewArray<?>) parent).getElements()) {
+                    if (expr == current_elem) {
+                        break;
+                    }
+                }
+                result.add(current.extend(getImpactElement(parent), ImpactType.ARGUMENT, weightedMore(map("index", ind), weight - 2)));
+                return result;
             } else if (parent instanceof CtNewArray && roleInParent.equals(CtRole.DIMENSION)) {
-                result.add(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 2)));
+                result.add(current.extend(getImpactElement(parent), ImpactType.ARGUMENT, weightedMore(weight - 2)));
+                return result;
             } else if (parent instanceof CtSwitch && roleInParent.equals(CtRole.EXPRESSION)) {
             } else if (parent instanceof CtCase && roleInParent.equals(CtRole.EXPRESSION)) {
             } else {
