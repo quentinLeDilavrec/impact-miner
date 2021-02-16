@@ -28,12 +28,13 @@ public class AugmentedAST<T extends SpoonAPI> {
     public final Path rootFolder;
     final Set<Path> testDirs;
     final Set<Path> srcDirs;
-    final Set<CtType<?>> testThings = new HashSet<>();
-    final Set<CtType<?>> srcThings = new HashSet<>();
+    // final Set<CtType<?>> testThings = new HashSet<>();
+    // final Set<CtType<?>> srcThings = new HashSet<>();
     final List<CtExecutableReference<?>> allExecutablesReferences;
+    final Map<String, CtCompilationUnit> cuByRelPath = new HashMap<>();
 
     public CtCompilationUnit getCu(String path) {
-        return launcher.getFactory().CompilationUnit().getMap().get(path);
+        return cuByRelPath.get(path);
     }
 
     public AugmentedAST(final T launcher) {
@@ -56,25 +57,26 @@ public class AugmentedAST<T extends SpoonAPI> {
         final Collection<CtType<?>> allTypes = launcher.getModel().getAllTypes();
         for (final CtType<?> type : allTypes) {
             Path relativized = rootFolder.relativize(type.getPosition().getFile().toPath().toAbsolutePath());
-            boolean isTest = false;
-            for (final Path file : testDirs) {
-                if (relativized.startsWith(file)) {
-                    isTest = true;
-                    break;
-                }
-            }
-            if (isTest)
-                this.testThings.add(type);
+            cuByRelPath.put(relativized.toString(), type.getPosition().getCompilationUnit());
+            // boolean isTest = false;
+            // for (final Path file : testDirs) {
+            //     if (relativized.startsWith(file)) {
+            //         isTest = true;
+            //         break;
+            //     }
+            // }
+            // if (isTest)
+            //     this.testThings.add(type);
 
-            boolean isNotTest = false;
-            for (final Path file : srcDirs) {
-                if (relativized.startsWith(file)) {
-                    isNotTest = true;
-                    break;
-                }
-            }
-            if (isNotTest)
-                this.srcThings.add(type);
+            // boolean isNotTest = false;
+            // for (final Path file : srcDirs) {
+            //     if (relativized.startsWith(file)) {
+            //         isNotTest = true;
+            //         break;
+            //     }
+            // }
+            // if (isNotTest)
+            //     this.srcThings.add(type);
         }
 
         this.allExecutablesReferences = new ArrayList<>();
