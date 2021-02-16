@@ -125,7 +125,7 @@ public class ImpactAnalysis {
             // List<CtElement> tmp = this.launcher.getModel().getElements(filter);
             final SourcePosition pos = ele.getPosition();
             assert pos.isValidPosition() : pos;
-            ImpactElement tmp2 = new ImpactElement(ele);
+            ImpactElement tmp2 = ImpactElement.build(ele);
             elements.putIfAbsent(tmp2, tmp2);
             tmp2 = elements.get(tmp2);
             tmp2.addEvolution(impactingThing,
@@ -160,7 +160,7 @@ public class ImpactAnalysis {
             }
             assert element != null : position;
             assert position != null : element;
-            ImpactElement tmp2 = new ImpactElement(element);
+            ImpactElement tmp2 = ImpactElement.build(element);
             elements.putIfAbsent(tmp2, tmp2);
             tmp2 = elements.get(tmp2);
             tmp2.addEvolution(impactingThing, position);
@@ -183,7 +183,7 @@ public class ImpactAnalysis {
             }
             CtElement element = Utils.matchExact((CtElement) tmp0, pos.getStart(), pos.getEnd() - 1);
             assert element != null : element;
-            ImpactElement tmp2 = new ImpactElement(element);
+            ImpactElement tmp2 = ImpactElement.build(element);
             elements.putIfAbsent(tmp2, tmp2);
             tmp2 = elements.get(tmp2);
             tmp2.addEvolution(impactingThing, pos);
@@ -202,7 +202,7 @@ public class ImpactAnalysis {
                         Paths.get(this.augmented.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                         pos.getStart(), pos.getEnd()));
                 for (final CtElement element : tmp) {
-                    ImpactElement tmp2 = new ImpactElement(element);
+                    ImpactElement tmp2 = ImpactElement.build(element);
                     elements.putIfAbsent(tmp2, tmp2);
                     tmp2 = elements.get(tmp2);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);
@@ -223,7 +223,7 @@ public class ImpactAnalysis {
                         Paths.get(this.augmented.rootFolder.toAbsolutePath().toString(), pos.getFilePath()).toString(),
                         pos.getStart(), pos.getEnd()));
                 for (final CtElement element : tmp) {
-                    ImpactElement tmp2 = new ImpactElement(element);
+                    ImpactElement tmp2 = ImpactElement.build(element);
                     elements.putIfAbsent(tmp2, tmp2);
                     tmp2 = elements.get(tmp2);
                     tmp2.addEvolution((Evolution<Object>) impactingThing, pos);

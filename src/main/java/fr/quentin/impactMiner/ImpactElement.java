@@ -10,6 +10,7 @@ import java.util.Set;
 
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.cu.SourcePositionHolder;
+import spoon.reflect.cu.position.NoSourcePosition;
 import spoon.reflect.declaration.CtElement;
 
 /**
@@ -20,12 +21,46 @@ public class ImpactElement {
     private final CtElement content;
     private final Map<String, Object> more = new HashMap<>();
     private final Map<Object, Position> evolutions = new HashMap<>();
-	public static final String BEST_FLOW = "best flow graph";
-	public static final String BEST_TYPE = "best type graph";
-	public static final String BEST_CG = "best call graph";
-	public static final String BEST_STRUC = "best struc graph";
+    public static final String BEST_FLOW = "best flow graph";
+    public static final String BEST_TYPE = "best type graph";
+    public static final String BEST_CG = "best call graph";
+    public static final String BEST_STRUC = "best struc graph";
     public static final String BEST_OTHER = "best other graph";
-    
+
+    public static ImpactElement build(CtElement e) {
+        return build(e.getPosition(), e);
+    }
+
+    public static ImpactElement build(Position position) {
+        return build(position, null);
+    }
+
+    public static ImpactElement build(String file, int start, int end) {
+        return build(file, start, end, null);
+    }
+
+    public static ImpactElement build(String file, int start, int end, CtElement content) {
+        return build(new Position(file, start, end), content);
+    }
+
+    public static ImpactElement build(SourcePosition position) {
+        return build(position, null);
+    }
+
+    public static ImpactElement build(SourcePosition position, CtElement content) {
+        if (position == null) {
+            throw new UnsupportedOperationException("the position is mandatory to make an ImpactElement");
+        }
+        if (position instanceof NoSourcePosition) {
+            throw new UnsupportedOperationException("NoSourcePosition cannot be wrapped as an ImpactElement");
+        }
+        return build(position.getFile().getAbsolutePath(), position.getSourceStart(), position.getSourceEnd(), content);
+    }
+
+    public static ImpactElement build(Position position, CtElement content) {
+        return new ImpactElement(position, content);
+    }
+
     /**
      * @return the getEvolutionWithNonCorrectedPosition
      */
@@ -45,32 +80,7 @@ public class ImpactElement {
         return (T) more.put(key, value);
     }
 
-    public ImpactElement(CtElement e) {
-        this(e.getPosition(), e);
-    }
-
-    public ImpactElement(Position position) {
-        this(position, null);
-    }
-
-    public ImpactElement(String file, int start, int end) {
-        this(file, start, end, null);
-    }
-
-    public ImpactElement(String file, int start, int end, CtElement content) {
-        this.position = new Position(file, start, end);
-        this.content = content;
-    }
-
-    public ImpactElement(SourcePosition position) {
-        this(position, null);
-    }
-
-    public ImpactElement(SourcePosition position, CtElement content) {
-        this(position.getFile().getAbsolutePath(), position.getSourceStart(), position.getSourceEnd(), content);
-    }
-
-    public ImpactElement(Position position, CtElement content) {
+    protected ImpactElement(Position position, CtElement content) {
         this.position = position;
         this.content = content;
     }

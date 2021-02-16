@@ -71,7 +71,7 @@ public class Explorer {
     public static ImpactElement getImpactElement(Map<ImpactElement, ImpactElement> alreadyMarchedElement,
             CtElement next) {
         assert next != null;
-        ImpactElement ie = new ImpactElement(next);
+        ImpactElement ie = ImpactElement.build(next);
         alreadyMarchedElement.putIfAbsent(ie, ie);
         return alreadyMarchedElement.get(ie);
     }
