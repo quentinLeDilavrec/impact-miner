@@ -23,7 +23,7 @@ import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.filter.TypeFilter;
 
 public class AugmentedAST<T extends SpoonAPI> {
-	public final T launcher;
+    public final T launcher;
     public final Path rootFolder;
     final Set<Path> testDirs;
     final Set<Path> srcDirs;
@@ -35,12 +35,13 @@ public class AugmentedAST<T extends SpoonAPI> {
     public Map<String, CtType<?>> getTypesIndexByFileName() {
         return Collections.unmodifiableMap(topsByFileName);
     }
+
     public CtType<?> getTop(String path) {
         return topsByFileName.get(path);
     }
 
     public AugmentedAST(final T launcher) {
-		this.launcher = launcher;
+        this.launcher = launcher;
 
         this.testDirs = new HashSet<>();
         this.srcDirs = new HashSet<>();
@@ -82,9 +83,10 @@ public class AugmentedAST<T extends SpoonAPI> {
             if (type.isTopLevel() && !type.isShadow()) {
                 final CtType<?> tmp = this.topsByFileName.put(relativized.toString(), type);
                 if (tmp != null) {
-                    System.out.println("put return should be null "+ tmp);
+                    System.err.println("put return should be null " + tmp.getShortRepresentation());
                     // throw new RuntimeException("sould be null "+ tmp);
-                };
+                }
+                ;
             }
         }
 
@@ -97,8 +99,6 @@ public class AugmentedAST<T extends SpoonAPI> {
             }
         }
     }
-
-
 
     public void needsSimple(CtType<?> ele, Set<CtType<?>> acc) {
         Set<CtTypeReference<?>> l = ele.getUsedTypes(true);
