@@ -14,6 +14,7 @@ import java.util.Set;
 import spoon.MavenLauncher;
 import spoon.SpoonAPI;
 import spoon.SpoonException;
+import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
@@ -30,14 +31,9 @@ public class AugmentedAST<T extends SpoonAPI> {
     final Set<CtType<?>> testThings = new HashSet<>();
     final Set<CtType<?>> srcThings = new HashSet<>();
     final List<CtExecutableReference<?>> allExecutablesReferences;
-    final Map<String, CtType<?>> topsByFileName = new HashMap<>();
 
-    public Map<String, CtType<?>> getTypesIndexByFileName() {
-        return Collections.unmodifiableMap(topsByFileName);
-    }
-
-    public CtType<?> getTop(String path) {
-        return topsByFileName.get(path);
+    public CtCompilationUnit getCu(String path) {
+        return launcher.getFactory().CompilationUnit().getMap().get(path);
     }
 
     public AugmentedAST(final T launcher) {
@@ -79,15 +75,6 @@ public class AugmentedAST<T extends SpoonAPI> {
             }
             if (isNotTest)
                 this.srcThings.add(type);
-
-            if (type.isTopLevel() && !type.isShadow()) {
-                final CtType<?> tmp = this.topsByFileName.put(relativized.toString(), type);
-                if (tmp != null) {
-                    System.err.println("put return should be null " + tmp.getShortRepresentation());
-                    // throw new RuntimeException("sould be null "+ tmp);
-                }
-                ;
-            }
         }
 
         this.allExecutablesReferences = new ArrayList<>();
