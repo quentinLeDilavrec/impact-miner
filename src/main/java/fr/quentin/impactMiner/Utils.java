@@ -2,6 +2,7 @@ package fr.quentin.impactMiner;
 
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.declaration.CtType;
 
 public class Utils {
     public static CtElement matchExact(CtElement ele, int start, int end) {
@@ -64,5 +65,27 @@ public class Utils {
         } else {
             return null;
         }
+    }
+
+	public static boolean isContainingType(CtType<?> ele, int start, int end) {
+		SourcePosition position = ele.getPosition();
+		if (position == null || !position.isValidPosition()) {
+			return false;
+		}
+		int sourceStart = position.getSourceStart();
+		int sourceEnd = position.getSourceEnd();
+		int ds = start - sourceStart;
+		int de = sourceEnd - end;
+		if (ds == 0 && de == 0) {
+			return true;
+		} else if (ds >= 0 && de >= 0) {
+			return true;
+		} else if (sourceEnd < start) {
+			return false;
+		} else if (end < sourceStart) {
+			return false;
+		} else {
+			return false;
+		}
     }
 }

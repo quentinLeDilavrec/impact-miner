@@ -34,6 +34,7 @@ import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtAnonymousExecutable;
+import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.reflect.declaration.CtConstructor;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
@@ -135,7 +136,7 @@ public class ImpactAnalysis {
         Logger.getLogger("getImpactedTests").info(Integer.toString(chains.size()));
         return exploreAST2(elements, chains, onTests);
     }
-
+    
     public <T> Explorer getImpactedTests4(final Collection<ImmutablePair<Object, Object>> col, final boolean onTests)
             throws IOException {
         final Set<ImpactChain> chains = new HashSet<>();
@@ -152,11 +153,13 @@ public class ImpactAnalysis {
                 position = new Position(pos.getFile().getAbsolutePath(), pos.getSourceStart(), pos.getSourceEnd());
             } else if (x.right instanceof Position) {
                 position = (Position) x.right;
-                final CtType<?> tmp0 = this.augmented.topsByFileName.get(position.getFilePath());
-                if (tmp0 == null) {
-                    continue;
+                CtCompilationUnit cu = this.augmented.getCu(position.getFilePath());
+                for (CtType<?> type : cu.getDeclaredTypes()) {
+                    if (fr.quentin.impactMiner.Utils.isContainingType(type, position.getStart(), position.getEnd() - 1)) {
+                        element = fr.quentin.impactMiner.Utils.matchExact(type, position.getStart(), position.getEnd() - 1);
+                        break;
+                    }
                 }
-                element = Utils.matchExact((CtElement) tmp0, position.getStart(), position.getEnd() - 1);
             }
             assert element != null : position;
             assert position != null : element;
@@ -177,11 +180,14 @@ public class ImpactAnalysis {
         for (final ImmutablePair<Object, Position> x : col) {
             final Object impactingThing = x.left;
             final Position pos = x.right;
-            final CtType<?> tmp0 = this.augmented.topsByFileName.get(pos.getFilePath());
-            if (tmp0 == null) {
-                continue;
+            CtElement element = null;
+            CtCompilationUnit cu = this.augmented.getCu(pos.getFilePath());
+            for (CtType<?> type : cu.getDeclaredTypes()) {
+                if (fr.quentin.impactMiner.Utils.isContainingType(type, pos.getStart(), pos.getEnd() - 1)) {
+                    element = fr.quentin.impactMiner.Utils.matchExact(type, pos.getStart(), pos.getEnd() - 1);
+                    break;
+                }
             }
-            CtElement element = Utils.matchExact((CtElement) tmp0, pos.getStart(), pos.getEnd() - 1);
             assert element != null : element;
             ImpactElement tmp2 = ImpactElement.build(element);
             elements.putIfAbsent(tmp2, tmp2);
