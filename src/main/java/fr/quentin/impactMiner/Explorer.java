@@ -911,7 +911,8 @@ public class Explorer {
                 } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.NOT)) {
                 } else if (((CtUnaryOperator<?>) parent).getKind().equals(UnaryOperatorKind.POS)) {
                 } else {
-                    assert false : parent;
+                    ImpactAnalysis.logger.log(Level.WARNING,
+                            "followValue unary operator not handled: " + ((CtUnaryOperator<?>) parent).getKind());
                 }
             } else if (roleInParent.equals(CtRole.ANNOTATION)) {
                 result.add(current.extend(getImpactElement(parent), ImpactType.ANNOTATE, weightedMore(weight - 1)));
@@ -939,7 +940,17 @@ public class Explorer {
                         weightedMore(map("key", key), weight - 1)));
                 return result;
             } else if (parent instanceof CtWhile && roleInParent.equals(CtRole.EXPRESSION)) {
+            } else if (parent instanceof CtDo && roleInParent.equals(CtRole.EXPRESSION)) {
             } else if (parent instanceof CtArrayRead && roleInParent.equals(CtRole.TARGET)) {
+            } else if (parent instanceof CtArrayWrite && roleInParent.equals(CtRole.TARGET)) {
+                result.add(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 2)));
+            } else if (parent instanceof CtAssert && roleInParent.equals(CtRole.CONDITION)) {
+                // TODO consider these together with jUnit assertions as porperties that can be used for validation maybe also uncatch exc
+                // here the complexity lie in the fact that any exception can be catched
+            } else if (parent instanceof CtNewArray && roleInParent.equals(CtRole.DIMENSION)) {
+                result.add(current.extend(getImpactElement(parent), ImpactType.VALUE, weightedMore(weight - 2)));
+            } else if (parent instanceof CtSwitch && roleInParent.equals(CtRole.EXPRESSION)) {
+            } else if (parent instanceof CtCase && roleInParent.equals(CtRole.EXPRESSION)) {
             } else {
                 ImpactAnalysis.logger.log(Level.WARNING,
                         "followValue case not handled: " + parent.getClass() + " " + roleInParent.name());
